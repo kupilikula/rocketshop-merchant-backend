@@ -16,7 +16,6 @@ module.exports = async function (fastify, opts) {
         console.error('Error appending to file:', err);
         return;
       }
-
       console.log('Data appended to file successfully.');
       writeStream.end();
     });
