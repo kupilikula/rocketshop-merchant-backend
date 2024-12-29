@@ -1,3 +1,5 @@
+require('dotenv').config(); // If using a .env file
+
 module.exports = {
   development: {
     client: 'pg',
