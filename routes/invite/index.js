@@ -7,7 +7,7 @@ const emailListFile = '../emailList.txt'; // Replace with the actual path to you
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async function (request, reply) {
-    return 'App is running.'
+    return 'App is Running.'
   });
   fastify.post('/', async function (request, reply) {
     const writeStream = fs.createWriteStream(emailListFile, { flags: 'a' });
