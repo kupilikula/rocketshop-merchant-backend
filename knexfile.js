@@ -12,7 +12,7 @@ module.exports = {
       ssl: { rejectUnauthorized: false },
     },
     migrations: {
-      directory: './migrations',
+      directory: './database/migrations',
     },
   },
 };
