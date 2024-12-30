@@ -181,9 +181,9 @@ exports.seed = async function (knex) {
             updated_at: new Date(),
         });
 
-        orderItems.forEach((item) => {
+        orderItems.forEach((item, item_i) => {
             orderItemsData.push({
-                orderItemId: faker.string.uuid(),
+                id: (i)*50 + item_i,
                 orderId,
                 productId: item.productId,
                 quantity: item.quantity,
