@@ -20,8 +20,8 @@ exports.seed = async function (knex) {
         merchantName: faker.person.fullName(),
         merchantPhone: faker.phone.number({style: 'international'}),
         merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
     }));
     await knex('merchants').insert(merchants);
 
@@ -53,8 +53,8 @@ exports.seed = async function (knex) {
                 merchantId: merchant.merchantId,
                 storeId: store.storeId,
                 role: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         }
     }
