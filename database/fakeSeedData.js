@@ -1,5 +1,5 @@
 const { faker } = require('@faker-js/faker');
-const { orderStatusList } = require("../utils/orderStatusList");
+const orderStatusList = require("../utils/orderStatusList");
 
 exports.seed = async function (knex) {
     // Deletes ALL existing entries

@@ -1,4 +1,4 @@
-const { orderStatusList } = require("../../utils/orderStatusList");
+const orderStatusList = require("../../utils/orderStatusList");
 
 exports.up = async function(knex) {
     await knex.schema.createTable("stores", function(table) {

@@ -1,4 +1,4 @@
-export const orderStatusList = [
+const orderStatusList = [
     "Order Placed", // Order has been placed by the customer
     "Payment Pending", // Payment is not yet confirmed
     "Payment Received", // Payment has been successfully processed
@@ -15,3 +15,5 @@ export const orderStatusList = [
     "Failed", // Order failed (e.g., payment or processing issue)
     "Returned", // Product has been returned by the customer
 ];
+
+module.exports = orderStatusList;
