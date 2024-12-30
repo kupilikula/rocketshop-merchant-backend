@@ -1,8 +1,9 @@
 const { faker } = require('@faker-js/faker');
-const orderStatusList = require("../utils/orderStatusList");
+const orderStatusList = require("../../../utils/orderStatusList");
 
 exports.seed = async function (knex) {
     // Deletes ALL existing entries
+    await knex('offers').del();
     await knex('order_status_history').del();
     await knex('order_items').del();
     await knex('orders').del();
@@ -69,6 +70,26 @@ exports.seed = async function (knex) {
         }
     }
     await knex('products').insert(products);
+
+    // Seed productCollections for ordering of products within collections
+    const productCollections = [];
+    for (const collection of collections) {
+        const productsInStore = products.filter(p => p.storeId === collection.storeId);
+        const numProductsInCollection = faker.number.int({ min: 5, max: 15 });
+        const selectedProducts = faker.helpers.arrayElements(productsInStore, numProductsInCollection);
+
+        selectedProducts.forEach((product, index) => {
+            product.collectionIds.push(collection.collectionId); // Assign the collection ID to the product
+            productCollections.push({
+                productId: product.productId,
+                collectionId: collection.collectionId,
+                displayOrder: index + 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        });
+    }
+    await knex('productCollections').insert(productCollections);
 
     // Seed customers
     const customers = Array.from({ length: 20 }, () => ({
