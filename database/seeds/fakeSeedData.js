@@ -163,22 +163,21 @@ exports.seed = async function (knex) {
             { count: faker.number.int({ min: 1, max: 5 }) }
         );
 
-        const orderStatus = faker.helpers.arrayElement(orderStatusList);
+        const status = faker.helpers.arrayElement(orderStatusList);
         const orderStatusUpdateTime = faker.date.recent();
 
         orders.push({
             orderId,
             storeId: store.storeId,
             customerId: customer.customerId,
-            orderStatus,
-            orderStatusUpdateTime,
+            status,
             orderDate: faker.date.past(),
             orderTotal: orderItems.reduce(
                 (sum, item) => sum + parseFloat(item.price) * item.quantity,
                 0
             ),
-            created_at: new Date(),
-            updated_at: new Date(),
+            created_at: orderStatusUpdateTime,
+            updated_at: orderStatusUpdateTime,
         });
 
         orderItems.forEach((item, item_i) => {
