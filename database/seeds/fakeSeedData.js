@@ -19,8 +19,8 @@ exports.seed = async function (knex) {
         storeDescription: faker.lorem.text(),
         storeBrandColor: faker.color.rgb(),
         storeLogoImage: faker.image.url(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
     }));
     await knex('stores').insert(stores);
 
@@ -35,8 +35,8 @@ exports.seed = async function (knex) {
                 storeId: store.storeId,
                 isActive: faker.datatype.boolean(),
                 displayOrder: i + 1,
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         }
     }
@@ -64,8 +64,8 @@ exports.seed = async function (knex) {
                         desc: faker.string.alpha(),
                     },
                 ],
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         }
     }
@@ -84,8 +84,8 @@ exports.seed = async function (knex) {
                 productId: product.productId,
                 collectionId: collection.collectionId,
                 displayOrder: index + 1,
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         });
     }
@@ -98,8 +98,8 @@ exports.seed = async function (knex) {
         email: faker.internet.email(),
         phone: faker.phone.number(),
         customerAddress: faker.address.streetAddress(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
     }));
     await knex('customers').insert(customers);
 
@@ -138,8 +138,8 @@ exports.seed = async function (knex) {
                 (sum, item) => sum + parseFloat(item.price) * item.quantity,
                 0
             ),
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
         });
 
         orderItems.forEach((item) => {
@@ -149,8 +149,8 @@ exports.seed = async function (knex) {
                 productId: item.productId,
                 quantity: item.quantity,
                 price: item.price,
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         });
 
@@ -158,7 +158,7 @@ exports.seed = async function (knex) {
             orderStatusHistoryId: faker.string.uuid(),
             orderId,
             orderStatus,
-            updatedAt: orderStatusUpdateTime,
+            updated_at: orderStatusUpdateTime,
         });
     }
 
@@ -220,8 +220,8 @@ exports.seed = async function (knex) {
                     validUntil: faker.date.future(1),
                 },
                 isActive: faker.datatype.boolean(),
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         }
     }
