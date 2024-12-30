@@ -49,7 +49,7 @@ exports.seed = async function (knex) {
 
         for (const store of assignedStores) {
             merchantStores.push({
-                merchantStoreId: faker.datatype.uuid(),
+                merchantStoreId: faker.string.uuid(),
                 merchantId: merchant.merchantId,
                 storeId: store.storeId,
                 role: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
