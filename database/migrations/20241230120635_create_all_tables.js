@@ -1,15 +1,30 @@
 const orderStatusList = require("../../utils/orderStatusList");
 
 exports.up = async function(knex) {
+    await knex.schema.createTable('merchants', (table) => {
+        table.uuid('merchantId').primary(); // Primary key
+        table.string('merchantName').notNullable(); // Merchant's name
+        table.string('merchantPhone').unique().notNullable(); // Phone number, unique
+        table.enum('merchantRole', ['Admin', 'Manager', 'Staff']).notNullable(); // Role
+        table.timestamps(true, true); // Timestamps
+    });
+
     await knex.schema.createTable("stores", function(table) {
         table.uuid("storeId").primary();
-        table.uuid("merchantId").notNullable();
         table.string("storeName").notNullable();
         table.string("storeLogoImage").nullable();
         table.string("storeBrandColor").nullable();
         table.text("storeDescription").notNullable();
         table.jsonb("storeTags").defaultTo("[]");
         table.timestamps(true, true);
+    });
+
+    await knex.schema.createTable('merchantStores', (table) => {
+        table.uuid('merchantStoreId').primary(); // Primary key
+        table.uuid('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE'); // FK to merchants
+        table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE'); // FK to stores
+        table.enum('role', ['Admin', 'Manager', 'Staff']).notNullable(); // Role for this merchant in this store
+        table.timestamps(true, true); // Timestamps
     });
 
     await knex.schema.createTable("collections", function(table) {
@@ -118,5 +133,7 @@ exports.down = async function(knex) {
     await knex.schema.dropTableIfExists("products");
     await knex.schema.dropTableIfExists("collections");
     await knex.schema.dropTableIfExists("customers");
+    await knex.schema.dropTableIfExists("merchantStores");
     await knex.schema.dropTableIfExists("stores");
+    await knex.schema.dropTableIfExists("merchants");
 };

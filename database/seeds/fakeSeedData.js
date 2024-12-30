@@ -7,10 +7,23 @@ exports.seed = async function (knex) {
     await knex('order_status_history').del();
     await knex('order_items').del();
     await knex('orders').del();
+    await knex('productCollections').del();
     await knex('products').del();
     await knex('collections').del();
+    await knex('merchantStores').del();
     await knex('stores').del();
     await knex('customers').del();
+    await knex('merchants').del();
+
+    const merchants = Array.from({ length: 10 }, () => ({
+        merchantId: faker.string.uuid(),
+        merchantName: faker.person.fullName(),
+        merchantPhone: faker.phone.number({style: 'international'}),
+        merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    }));
+    await knex('merchants').insert(merchants);
 
     // Seed stores
     const stores = Array.from({ length: 10 }, () => ({
@@ -26,6 +39,27 @@ exports.seed = async function (knex) {
         updated_at: new Date(),
     }));
     await knex('stores').insert(stores);
+
+    // Seed merchantStores
+    const merchantStores = [];
+
+    for (const merchant of merchants) {
+        // Assign 1-3 random stores to each merchant
+        const assignedStores = faker.helpers.arrayElements(stores, faker.number.int({ min: 1, max: 3 }));
+
+        for (const store of assignedStores) {
+            merchantStores.push({
+                merchantStoreId: faker.datatype.uuid(),
+                merchantId: merchant.merchantId,
+                storeId: store.storeId,
+                role: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        }
+    }
+
+    await knex('merchantStores').insert(merchantStores);
 
     // Seed collections
     const collections = [];
