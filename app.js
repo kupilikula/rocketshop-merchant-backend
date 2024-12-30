@@ -16,6 +16,22 @@ module.exports = async function (fastify, opts) {
     credentials: true // Allow cookies and Authorization headers
   })
 
+  fastify.decorateRequest('user', null); // Decorate the request with a user property
+
+  fastify.addHook('onRequest', async (request, reply) => {
+    // const token = request.headers.authorization?.split(' ')[1]; // Extract token from Bearer header
+    // if (!token) {
+    //   return reply.status(401).send({ error: 'Unauthorized' });
+    // }
+
+    // try {
+      // const user = jwt.verify(token, JWT_SECRET); // Verify the token
+      request.user = {merchantId: "61c6f62d-27d3-44be-9eae-d34d95f94e32"}; // Attach the user to the request object
+    // } catch (err) {
+    //   return reply.status(401).send({ error: 'Invalid token' });
+    // }
+  });
+
 
   // Do not touch the following lines
 
