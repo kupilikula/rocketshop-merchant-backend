@@ -193,7 +193,7 @@ exports.seed = async function (knex) {
         });
 
         orderStatusHistoryData.push({
-            orderStatusHistoryId: faker.string.uuid(),
+            id: faker.number.int({min: 100, max: 1000000}),
             orderId,
             orderStatus,
             updated_at: orderStatusUpdateTime,
