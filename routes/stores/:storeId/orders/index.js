@@ -27,7 +27,7 @@ module.exports = async function (fastify, opts) {
       }
 
       if (status) {
-        query = query.andWhere({ orderCurrentStatus: status });
+        query = query.andWhere({ orderStatus: status });
       }
 
       const orders = await query

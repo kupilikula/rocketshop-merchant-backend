@@ -28,8 +28,8 @@ module.exports = async function (fastify, opts) {
       await knex('orders')
           .where({ orderId })
           .update({
-            orderCurrentStatus: newStatus,
-            orderCurrentStatusUpdateTimestamp: new Date(),
+            orderStatus: newStatus,
+            orderStatusUpdateTime: new Date(),
           });
 
       // Insert the status update into the order_status_history table
