@@ -1,6 +1,7 @@
 'use strict'
 
 const knex = require("knex");
+const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/api/merchants/stores/:storeId/customers/top', async (request, reply) => {
@@ -38,11 +39,4 @@ module.exports = async function (fastify, opts) {
     }
   });
 
-// Utility function to validate merchant's access to the store
-  async function validateMerchantAccessToStore(merchantId, storeId) {
-    const store = await knex('stores')
-        .where({ storeId, merchantId })
-        .first();
-    return !!store;
-  }
 }

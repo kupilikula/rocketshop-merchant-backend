@@ -1,6 +1,7 @@
 'use strict'
 
 const knex = require("knex");
+const validateMerchantAccessToStore = require("../../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
   fastify.put('/', async (request, reply) => {
@@ -64,11 +65,4 @@ module.exports = async function (fastify, opts) {
       return reply.status(500).send({ error: 'Failed to update product.' });
     }
   });
-// Utility function to validate merchant's access to the store
-  async function validateMerchantAccessToStore(merchantId, storeId) {
-    const store = await knex('stores')
-        .where({ storeId, merchantId })
-        .first();
-    return !!store;
-  }
 }
