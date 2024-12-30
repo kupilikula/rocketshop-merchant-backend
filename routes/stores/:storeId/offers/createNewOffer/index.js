@@ -46,8 +46,8 @@ module.exports = async function (fastify, opts) {
             conditions: JSON.stringify(conditions),
             validityDateRange: JSON.stringify(validityDateRange),
             isActive,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
           })
           .returning('offerId');
 

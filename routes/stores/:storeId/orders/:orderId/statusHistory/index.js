@@ -18,7 +18,7 @@ module.exports = async function (fastify, opts) {
       // Fetch the status history
       const history = await knex('order_status_history')
           .where({ orderId })
-          .orderBy('updatedAt', 'asc');
+          .orderBy('updated_at', 'asc');
 
       return reply.send(history);
     } catch (error) {

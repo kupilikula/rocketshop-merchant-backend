@@ -37,7 +37,7 @@ module.exports = async function (fastify, opts) {
       await knex('order_status_history').insert({
         orderId,
         status: newStatus,
-        updatedAt: new Date(),
+        updated_at: new Date(),
       });
 
       return reply.send({ message: 'Order status updated successfully.' });

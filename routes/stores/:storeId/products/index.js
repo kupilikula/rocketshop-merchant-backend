@@ -18,7 +18,7 @@ module.exports = async function (fastify, opts) {
       // Fetch all products for the store, selecting all fields
       const products = await knex('products')
           .where({ storeId })
-          .orderBy('createdAt', 'desc');
+          .orderBy('created_at', 'desc');
 
       // Format mediaItems if stored as JSON
       products.forEach(product => {

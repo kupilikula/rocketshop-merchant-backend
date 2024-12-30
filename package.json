@@ -7,7 +7,7 @@
     "test": "test"
   },
   "_moduleAliases": {
-    "@database"      : "database"
+    "@database": "database"
   },
   "scripts": {
     "test": "node --test test/**/*.test.js",

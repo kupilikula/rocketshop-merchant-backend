@@ -52,7 +52,7 @@ module.exports = async function (fastify, opts) {
             collectionIds: JSON.stringify(collectionIds),
             productTags: JSON.stringify(productTags),
             isActive,
-            updatedAt: new Date(),
+            updated_at: new Date(),
           });
 
       if (!updatedRows) {

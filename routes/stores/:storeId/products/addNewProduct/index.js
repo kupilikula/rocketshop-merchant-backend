@@ -43,8 +43,8 @@ module.exports = async function (fastify, opts) {
             collectionIds: JSON.stringify(collectionIds),
             productTags: JSON.stringify(productTags),
             isActive,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
           })
           .returning('productId'); // Return the ID of the newly created product
 

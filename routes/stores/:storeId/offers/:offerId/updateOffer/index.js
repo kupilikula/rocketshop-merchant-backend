@@ -54,7 +54,7 @@ module.exports = async function (fastify, opts) {
           .where({ storeId, offerId })
           .update({
             ...updateFields,
-            updatedAt: new Date(), // Update the timestamp
+            updated_at: new Date(), // Update the timestamp
           });
 
       return reply.send({ message: 'Offer updated successfully.' });

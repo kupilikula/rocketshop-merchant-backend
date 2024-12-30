@@ -1,4 +1,6 @@
 // db.js
+require('dotenv').config();
+
 const knex = require('knex');
 const config = require('../knexfile'); // Adjust the path to your knexfile
 
