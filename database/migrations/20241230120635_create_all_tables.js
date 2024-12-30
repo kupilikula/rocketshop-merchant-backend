@@ -94,7 +94,7 @@ exports.up = async function(knex) {
         table.increments("id").primary();
         table.uuid("orderId").notNullable();
         table.enum("status", orderStatusList).notNullable();
-        table.timestamp("updatedAt").defaultTo(knex.fn.now()).notNullable();
+        table.timestamps(true, true);
 
         table.foreign("orderId").references("orders.orderId").onDelete("CASCADE");
     });
@@ -104,7 +104,7 @@ exports.up = async function(knex) {
         table.uuid("orderId").notNullable();
         table.uuid("productId").notNullable();
         table.integer("quantity").notNullable();
-
+        table.timestamps(true, true);
         table.foreign("orderId").references("orders.orderId").onDelete("CASCADE");
         table.foreign("productId").references("products.productId").onDelete("CASCADE");
     });
