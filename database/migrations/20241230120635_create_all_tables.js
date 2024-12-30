@@ -62,6 +62,7 @@ exports.up = async function(knex) {
         table.uuid("productId").notNullable();
         table.uuid("collectionId").notNullable();
         table.integer("displayOrder").defaultTo(0);
+        table.timestamps(true, true);
         table.foreign("productId").references("products.productId").onDelete("CASCADE");
         table.foreign("collectionId").references("collections.collectionId").onDelete("CASCADE");
     });

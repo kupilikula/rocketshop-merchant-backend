@@ -150,7 +150,7 @@ exports.seed = async function (knex) {
         const orderId = faker.string.uuid();
         const store = faker.helpers.arrayElement(stores);
         const customer = faker.helpers.arrayElement(customers);
-        const orderItems = JSON.stringify(faker.helpers.multiple(
+        const orderItems = faker.helpers.multiple(
             () => {
                 const product = faker.helpers.arrayElement(products.filter(p => p.storeId === store.storeId));
                 const quantity = faker.number.int({ min: 1, max: 10 });
@@ -161,7 +161,7 @@ exports.seed = async function (knex) {
                 };
             },
             { count: faker.number.int({ min: 1, max: 5 }) }
-        ));
+        );
 
         const orderStatus = faker.helpers.arrayElement(orderStatusList);
         const orderStatusUpdateTime = faker.date.recent();
