@@ -20,11 +20,6 @@ module.exports = async function (fastify, opts) {
           .where({ storeId })
           .orderBy('created_at', 'desc');
 
-      // Format mediaItems if stored as JSON
-      products.forEach(product => {
-        product.mediaItems = JSON.parse(product.mediaItems || '[]');
-      });
-
       if (!products || products.length === 0) {
         return reply.status(404).send({ error: 'No products found for this store.' });
       }
