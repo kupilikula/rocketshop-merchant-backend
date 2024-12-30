@@ -5,7 +5,7 @@ exports.up = async function(knex) {
         table.uuid("storeId").primary();
         table.uuid("merchantId").notNullable();
         table.string("storeName").notNullable();
-        table.string("storeLogo").nullable();
+        table.string("storeLogoImage").nullable();
         table.string("storeBrandColor").nullable();
         table.text("storeDescription").notNullable();
         table.jsonb("storeTags").defaultTo("[]");
