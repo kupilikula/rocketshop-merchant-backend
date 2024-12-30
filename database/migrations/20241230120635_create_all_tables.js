@@ -103,6 +103,7 @@ exports.up = async function(knex) {
         table.increments("id").primary();
         table.uuid("orderId").notNullable();
         table.uuid("productId").notNullable();
+        table.decimal("price", 10, 2).notNullable();
         table.integer("quantity").notNullable();
         table.timestamps(true, true);
         table.foreign("orderId").references("orders.orderId").onDelete("CASCADE");
