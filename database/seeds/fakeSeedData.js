@@ -19,9 +19,9 @@ exports.seed = async function (knex) {
         storeDescription: faker.lorem.text(),
         storeBrandColor: faker.color.rgb(),
         storeLogoImage: faker.image.url(),
-        storeTags: faker.helpers.uniqueArray(
+        storeTags: JSON.stringify(faker.helpers.uniqueArray(
             () => faker.word.adjective(),
-            faker.number.int({ min: 0, max: 10 })),
+            faker.number.int({ min: 0, max: 10 }))),
         created_at: new Date(),
         updated_at: new Date(),
     }));
@@ -56,20 +56,21 @@ exports.seed = async function (knex) {
                 price: faker.commerce.price(),
                 stock: faker.number.int({ min: 0, max: 100 }),
                 isActive: faker.datatype.boolean(),
-                collectionIds: [collection.collectionId],
-                productTags: faker.helpers.uniqueArray(
+                collectionIds: JSON.stringify([collection.collectionId]),
+                productTags: JSON.stringify(faker.helpers.uniqueArray(
                     () => faker.word.adjective(),
-                    faker.number.int({ min: 0, max: 10 })),
+                    faker.number.int({ min: 0, max: 10 }))),
                 storeId: collection.storeId,
-                mediaItems: [
-                    {
+                mediaItems: JSON.stringify(
+                    faker.helpers.multiple(() =>               (      {
                         mediaId: faker.string.uuid(),
-                        mediaType: "image",
-                        uri: faker.image.url(),
-                        orientation: "landscape",
-                        desc: faker.string.alpha(),
-                    },
-                ],
+                            mediaType: "image",
+                            uri: faker.image.url(),
+                            orientation: "landscape",
+                            desc: faker.string.alpha(),
+                    }), {count: 3}
+                    )
+                ),
                 created_at: new Date(),
                 updated_at: new Date(),
             });
@@ -100,10 +101,10 @@ exports.seed = async function (knex) {
     // Seed customers
     const customers = Array.from({ length: 20 }, () => ({
         customerId: faker.string.uuid(),
-        fullName: faker.name.fullName(),
+        fullName: faker.person.fullName(),
         email: faker.internet.email(),
         phone: faker.phone.number(),
-        customerAddress: faker.address.streetAddress(),
+        customerAddress: faker.location.streetAddress(),
         created_at: new Date(),
         updated_at: new Date(),
     }));
@@ -117,7 +118,7 @@ exports.seed = async function (knex) {
         const orderId = faker.string.uuid();
         const store = faker.helpers.arrayElement(stores);
         const customer = faker.helpers.arrayElement(customers);
-        const orderItems = faker.helpers.multiple(
+        const orderItems = JSON.stringify(faker.helpers.multiple(
             () => {
                 const product = faker.helpers.arrayElement(products.filter(p => p.storeId === store.storeId));
                 const quantity = faker.number.int({ min: 1, max: 10 });
@@ -128,7 +129,7 @@ exports.seed = async function (knex) {
                 };
             },
             { count: faker.number.int({ min: 1, max: 5 }) }
-        );
+        ));
 
         const orderStatus = faker.helpers.arrayElement(orderStatusList);
         const orderStatusUpdateTime = faker.date.recent();
@@ -203,28 +204,28 @@ exports.seed = async function (knex) {
                     'Buy N Get K Free',
                     'Free Shipping',
                 ]),
-                discountDetails: faker.helpers.arrayElement([
+                discountDetails: JSON.stringify(faker.helpers.arrayElement([
                     { percentage: faker.number.int({ min: 5, max: 50 }) },
                     { fixedAmount: faker.number.int({ min: 100, max: 1000 }) },
                     { buyN: faker.number.int({ min: 1, max: 5 }), getK: faker.number.int({ min: 1, max: 5 }) },
-                ]),
-                applicableTo: {
+                ])),
+                applicableTo: JSON.stringify({
                     products: randomProducts,
                     collections: randomCollections,
                     tags: faker.helpers.uniqueArray(
                         () => faker.word.adjective(),
                         faker.number.int({ min: 1, max: 3 })
                     ),
-                },
-                conditions: faker.helpers.arrayElement([
+                }),
+                conditions: JSON.stringify(faker.helpers.arrayElement([
                     null,
                     { minimumPurchaseAmount: faker.number.int({ min: 100, max: 500 }) },
                     { minimumItems: faker.number.int({ min: 1, max: 10 }) },
-                ]),
-                validityDateRange: {
+                ])),
+                validityDateRange: JSON.stringify({
                     validFrom: faker.date.future(0.1),
                     validUntil: faker.date.future(1),
-                },
+                }),
                 isActive: faker.datatype.boolean(),
                 created_at: new Date(),
                 updated_at: new Date(),
