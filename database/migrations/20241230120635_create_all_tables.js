@@ -47,7 +47,6 @@ exports.up = async function(knex) {
         table.text("description").nullable();
         table.decimal("price", 10, 2).notNullable();
         table.integer("stock").notNullable();
-        table.jsonb("collectionIds").defaultTo("[]"); // Array of collectionIds
         table.jsonb("productTags").defaultTo("[]"); // Array of tags
         table.jsonb("attributes").defaultTo("[]"); // Array of tags
         table.jsonb("mediaItems").defaultTo("[]"); // Storing mediaItems as JSON

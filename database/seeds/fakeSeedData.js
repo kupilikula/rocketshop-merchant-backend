@@ -90,7 +90,6 @@ exports.seed = async function (knex) {
                 price: faker.commerce.price(),
                 stock: faker.number.int({ min: 0, max: 100 }),
                 isActive: faker.datatype.boolean(),
-                collectionIds: JSON.stringify([collection.collectionId]),
                 productTags: JSON.stringify(faker.helpers.uniqueArray(
                     () => faker.word.adjective(),
                     faker.number.int({ min: 0, max: 10 }))),
@@ -120,7 +119,6 @@ exports.seed = async function (knex) {
         const selectedProducts = faker.helpers.arrayElements(productsInStore, numProductsInCollection);
 
         selectedProducts.forEach((product, index) => {
-            product.collectionIds.push(collection.collectionId); // Assign the collection ID to the product
             productCollections.push({
                 productId: product.productId,
                 collectionId: collection.collectionId,
