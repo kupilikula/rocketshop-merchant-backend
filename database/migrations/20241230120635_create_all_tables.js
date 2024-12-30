@@ -7,6 +7,8 @@ exports.up = async function(knex) {
         table.string("storeName").notNullable();
         table.string("storeLogo").nullable();
         table.string("storeBrandColor").nullable();
+        table.text("storeDescription").notNullable();
+        table.jsonb("storeTags").defaultTo("[]");
         table.timestamps(true, true);
     });
 
@@ -31,6 +33,8 @@ exports.up = async function(knex) {
         table.decimal("price", 10, 2).notNullable();
         table.integer("stock").notNullable();
         table.jsonb("collectionIds").defaultTo("[]"); // Array of collectionIds
+        table.jsonb("productTags").defaultTo("[]"); // Array of tags
+        table.jsonb("attributes").defaultTo("[]"); // Array of tags
         table.jsonb("mediaItems").defaultTo("[]"); // Storing mediaItems as JSON
         table.boolean("isActive").defaultTo(false);
         table.integer("displayOrder").defaultTo(0);

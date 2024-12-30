@@ -19,6 +19,9 @@ exports.seed = async function (knex) {
         storeDescription: faker.lorem.text(),
         storeBrandColor: faker.color.rgb(),
         storeLogoImage: faker.image.url(),
+        storeTags: faker.helpers.uniqueArray(
+            () => faker.word.adjective(),
+            faker.number.int({ min: 0, max: 10 })),
         created_at: new Date(),
         updated_at: new Date(),
     }));
@@ -54,6 +57,9 @@ exports.seed = async function (knex) {
                 stock: faker.number.int({ min: 0, max: 100 }),
                 isActive: faker.datatype.boolean(),
                 collectionIds: [collection.collectionId],
+                productTags: faker.helpers.uniqueArray(
+                    () => faker.word.adjective(),
+                    faker.number.int({ min: 0, max: 10 })),
                 storeId: collection.storeId,
                 mediaItems: [
                     {
