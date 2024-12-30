@@ -2,6 +2,7 @@
 
 // Read the .env file.
 require('dotenv').config()
+require('module-alias/register')
 
 // Require the framework
 const Fastify = require('fastify')

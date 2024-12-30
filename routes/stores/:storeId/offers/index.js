@@ -1,6 +1,6 @@
 'use strict'
 
-const knex = require("knex");
+const knex = require("@database/knexInstance");
 const validateMerchantAccessToStore = require("../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
