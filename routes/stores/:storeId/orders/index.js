@@ -16,7 +16,7 @@ module.exports = async function (fastify, opts) {
         return reply.status(403).send({ error: 'Unauthorized access to this store.' });
       }
 
-      // Construct the query
+      // Construct the main query for orders
       let query = knex('orders')
           .select(
               'orders.*',
@@ -46,7 +46,31 @@ module.exports = async function (fastify, opts) {
           .limit(parseInt(limit))
           .offset(parseInt(offset));
 
-      // Map customer details into the order object
+      // Extract orderIds to fetch order items
+      const orderIds = orders.map(order => order.orderId);
+
+      // Fetch order items and associated products
+      const orderItemsData = await knex('order_items')
+          .select(
+              'order_items.orderId',
+              'order_items.quantity',
+              'products.productId',
+              'products.price',
+              'products.productName',
+              'products.mediaItems'
+          )
+          .whereIn('order_items.orderId', orderIds)
+          .join('products', 'order_items.productId', 'products.productId');
+
+      // Group order items by orderId
+      const orderItemsGrouped = orderItemsData.reduce((acc, item) => {
+        const { orderId, quantity, ...productDetails } = item;
+        if (!acc[orderId]) acc[orderId] = [];
+        acc[orderId].push({ product: productDetails, quantity });
+        return acc;
+      }, {});
+
+      // Map customer details and order items into the order object
       const formattedOrders = orders.map((order) => ({
         ...order,
         customer: {
@@ -56,6 +80,7 @@ module.exports = async function (fastify, opts) {
           email: order.email,
           customerAddress: order.customerAddress,
         },
+        orderItems: orderItemsGrouped[order.orderId] || [],
       }));
 
       // Remove redundant customer fields from the main order object
