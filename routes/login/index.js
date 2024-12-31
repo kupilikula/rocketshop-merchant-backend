@@ -5,12 +5,12 @@ const knex = require("@database/knexInstance");
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
         let i = request.body.storeIndex || 0;
-        let row = knex('merchantStores')
+        let row = await knex('merchantStores')
             .select('merchantId', 'storeId')
             .offset(i)
             .limit(1);
         console.log('row: ', row)
         // console.log('merchantId:', merchantId, ', storeId:', storeId);
-        reply.status(200).send(row);
+        reply.status(200).send(row[0]);
     });
 }
