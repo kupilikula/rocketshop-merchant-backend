@@ -61,7 +61,7 @@ exports.seed = async function (knex) {
 
     await knex('merchantStores').insert(merchantStores);
 
-    // Seed collections
+// Seed collections
     const collections = [];
     for (const store of stores) {
         const numCollections = faker.number.int({ min: 3, max: 10 });
@@ -72,7 +72,7 @@ exports.seed = async function (knex) {
                 storeId: store.storeId,
                 isActive: faker.datatype.boolean(),
                 storeFrontDisplay: faker.datatype.boolean(),
-                storeFrontDisplayNumberOfItems: faker.helpers.arrayElement([2,4,6,8]),
+                storeFrontDisplayNumberOfItems: faker.helpers.arrayElement([2, 4, 6, 8]),
                 displayOrder: i + 1,
                 created_at: new Date(),
                 updated_at: new Date(),
@@ -81,13 +81,18 @@ exports.seed = async function (knex) {
     }
     await knex('collections').insert(collections);
 
-// Seed products
+// Seed products and ensure each product belongs to at least one collection
     const products = [];
+    const productCollections = [];
+    const chunkSize = 500; // To handle large inserts in chunks
+
     for (const collection of collections) {
         const numProducts = faker.number.int({ min: 10, max: 100 });
         for (let i = 0; i < numProducts; i++) {
-            products.push({
-                productId: faker.string.uuid(),
+            const productId = faker.string.uuid();
+
+            const product = {
+                productId,
                 productName: faker.commerce.productName(),
                 description: faker.lorem.text(),
                 price: faker.commerce.price({ min: 10, max: 10000, dec: 2 }),
@@ -111,7 +116,7 @@ exports.seed = async function (knex) {
                 ),
 
                 // New Fields
-                gstRate: faker.helpers.arrayElement([0,5,12,18,28]), // GST rates in India range up to 28%
+                gstRate: faker.helpers.arrayElement([0, 5, 12, 18, 28]), // GST rates in India range up to 28%
                 gstInclusive: faker.datatype.boolean(),
                 rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
                 numberOfRatings: faker.number.int({ min: 0, max: 500 }),
@@ -122,12 +127,21 @@ exports.seed = async function (knex) {
                 // Timestamps
                 created_at: new Date(),
                 updated_at: new Date(),
+            };
+
+            // Ensure the product belongs to at least one collection
+            products.push(product);
+            productCollections.push({
+                productId,
+                collectionId: collection.collectionId,
+                displayOrder: i + 1, // Use sequential ordering within the collection
+                created_at: new Date(),
+                updated_at: new Date(),
             });
         }
     }
 
-    const chunkSize = 500; // Insert 500 products at a time to stay within limits
-
+// Insert products in chunks
     console.log(`Inserting ${products.length} products in chunks of ${chunkSize}...`);
     for (let i = 0; i < products.length; i += chunkSize) {
         const chunk = products.slice(i, i + chunkSize);
@@ -140,30 +154,10 @@ exports.seed = async function (knex) {
         }
     }
 
-    console.log('Product seeding completed!');
-    // console.log('insert products.length:', products.length);
-    // console.log('inserting products:', products);
-    //
-    // await knex('products').insert(products);
-
-    // Seed productCollections for ordering of products within collections
-    const productCollections = [];
-    for (const collection of collections) {
-        const productsInStore = products.filter(p => p.storeId === collection.storeId);
-        const numProductsInCollection = faker.number.int({ min: 5, max: Math.min(50, productsInStore.length) });
-        const selectedProducts = faker.helpers.arrayElements(productsInStore, numProductsInCollection);
-
-        selectedProducts.forEach((product, index) => {
-            productCollections.push({
-                productId: product.productId,
-                collectionId: collection.collectionId,
-                displayOrder: index + 1,
-                created_at: new Date(),
-                updated_at: new Date(),
-            });
-        });
-    }
+// Insert productCollections
+    console.log(`Inserting ${productCollections.length} productCollections...`);
     await knex('productCollections').insert(productCollections);
+    console.log('ProductCollections seeding completed!');
 
     // Seed customers
     const customers = Array.from({ length: 20 }, () => ({
