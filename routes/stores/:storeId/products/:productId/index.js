@@ -24,6 +24,13 @@ module.exports = async function (fastify, opts) {
         return reply.status(404).send({ error: 'Product not found.' });
       }
 
+      // Fetch the collections the product belongs to
+      // Attach collections info to the product
+      product.collections = await knex('productCollections')
+          .join('collections', 'productCollections.collectionId', 'collections.collectionId')
+          .select('collections.collectionId', 'collections.collectionName')
+          .where('productCollections.productId', productId);
+
       return reply.send(product);
     } catch (error) {
       request.log.error(error);

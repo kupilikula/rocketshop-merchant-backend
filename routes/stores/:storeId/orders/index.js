@@ -17,7 +17,17 @@ module.exports = async function (fastify, opts) {
       }
 
       // Construct the query
-      let query = knex('orders').where({ storeId });
+      let query = knex('orders')
+          .select(
+              'orders.*',
+              'customers.customerId',
+              'customers.fullName',
+              'customers.phone',
+              'customers.email',
+              'customers.customerAddress'
+          )
+          .where({ 'orders.storeId': storeId })
+          .join('customers', 'orders.customerId', 'customers.customerId');
 
       if (startDate) {
         query = query.andWhere('orderDate', '>=', new Date(startDate));
@@ -36,7 +46,28 @@ module.exports = async function (fastify, opts) {
           .limit(parseInt(limit))
           .offset(parseInt(offset));
 
-      return reply.send(orders);
+      // Map customer details into the order object
+      const formattedOrders = orders.map((order) => ({
+        ...order,
+        customer: {
+          customerId: order.customerId,
+          fullName: order.fullName,
+          phone: order.phone,
+          email: order.email,
+          customerAddress: order.customerAddress,
+        },
+      }));
+
+      // Remove redundant customer fields from the main order object
+      formattedOrders.forEach((order) => {
+        delete order.customerId;
+        delete order.fullName;
+        delete order.phone;
+        delete order.email;
+        delete order.customerAddress;
+      });
+
+      return reply.send(formattedOrders);
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch orders.' });
