@@ -21,7 +21,7 @@ module.exports = async function (fastify, opts) {
       const uniqueTagsArray = uniqueTags.map(row => row.tag);
       console.log(uniqueTagsArray);
 
-      return reply.send(uniqueTags);
+      return reply.send(uniqueTagsArray);
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch productTags for the store.' });
