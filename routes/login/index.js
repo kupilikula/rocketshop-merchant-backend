@@ -8,9 +8,22 @@ module.exports = async function (fastify, opts) {
         let row = await knex('merchantStores')
             .select('merchantId', 'storeId')
             .offset(i)
-            .limit(1);
-        console.log('row: ', row)
-        // console.log('merchantId:', merchantId, ', storeId:', storeId);
-        reply.status(200).send(row[0]);
+            .first(); // Get a single row directly
+
+        if (!row) {
+            throw new Error('No row found at the specified index');
+        }
+
+// Extract merchantId and storeId from the row
+        const { merchantId, storeId } = row;
+
+// Get the full merchant and store rows
+        let [merchant, store] = await Promise.all([
+            knex('merchants').where({ merchantId }).first(),
+            knex('stores').where({ storeId }).first(),
+        ]);
+        let result = { merchant, store };
+
+        reply.status(200).send(result);
     });
 }

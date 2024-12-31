@@ -64,7 +64,7 @@ exports.seed = async function (knex) {
     // Seed collections
     const collections = [];
     for (const store of stores) {
-        const numCollections = faker.number.int({ min: 3, max: 5 });
+        const numCollections = faker.number.int({ min: 3, max: 10 });
         for (let i = 0; i < numCollections; i++) {
             collections.push({
                 collectionId: faker.string.uuid(),
@@ -84,7 +84,7 @@ exports.seed = async function (knex) {
 // Seed products
     const products = [];
     for (const collection of collections) {
-        const numProducts = faker.number.int({ min: 1, max: 10 });
+        const numProducts = faker.number.int({ min: 10, max: 100 });
         for (let i = 0; i < numProducts; i++) {
             products.push({
                 productId: faker.string.uuid(),
@@ -131,7 +131,7 @@ exports.seed = async function (knex) {
     const productCollections = [];
     for (const collection of collections) {
         const productsInStore = products.filter(p => p.storeId === collection.storeId);
-        const numProductsInCollection = faker.number.int({ min: 5, max: 15 });
+        const numProductsInCollection = faker.number.int({ min: 5, max: Math.min(50, productsInStore.length) });
         const selectedProducts = faker.helpers.arrayElements(productsInStore, numProductsInCollection);
 
         selectedProducts.forEach((product, index) => {
