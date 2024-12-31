@@ -34,17 +34,27 @@ module.exports = async function (fastify, opts) {
             }
 
             // Fetch the order items with product details
-            const orderItems = await knex('order_items as oi') // Assuming an `order_items` table
+            const orderItemsData = await knex('order_items as oi') // Assuming an `order_items` table
                 .join('products as p', 'oi.productId', 'p.productId')
                 .where({ orderId })
                 .select(
-                    'oi.productId',
                     'oi.quantity',
+                    'oi.productId',
                     'p.productName',
-                    'p.description',
                     'p.price',
                     'p.mediaItems'
                 );
+
+            // Format order items to include the product property
+            const orderItems = orderItemsData.map((item) => ({
+                product: {
+                    productId: item.productId,
+                    productName: item.productName,
+                    price: item.price,
+                    mediaItems: item.mediaItems,
+                },
+                quantity: item.quantity,
+            }));
 
             // Combine the data into a single response
             const response = {
@@ -52,8 +62,8 @@ module.exports = async function (fastify, opts) {
                 customer: {
                     customerId: customer.customerId,
                     fullName: customer.fullName,
-                    address: customer.address,
-                    phoneNumber: customer.phoneNumber,
+                    customerAddress: customer.customerAddress,
+                    phone: customer.phone,
                     email: customer.email,
                 },
                 orderItems,
@@ -65,5 +75,4 @@ module.exports = async function (fastify, opts) {
             return reply.status(500).send({ error: 'Failed to fetch order details.' });
         }
     });
-
-}
+};
