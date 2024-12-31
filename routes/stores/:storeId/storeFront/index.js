@@ -31,18 +31,12 @@ module.exports = async function (fastify, opts) {
 
       for (const collection of collections) {
         // Fetch products for each collection
-        const products = await knex('products')
-            .where({ storeId, isActive: true })
-            .andWhereRaw('? = ANY(collectionIds)', [collection.collectionId]) // Match collectionId in collectionIds array
-            .orderBy('displayOrder', 'asc') // Fetch all fields
+        // Fetch products in the collection using productCollections table
+        collection.products = await knex('productCollections')
+            .join('products', 'productCollections.productId', 'products.productId')
+            .where({'productCollections.collectionId': collection.collectionId, isActive: true})
+            .orderBy('productCollections.displayOrder', 'asc')
             .limit(collection.storeFrontDisplayNumberOfItems);
-
-        // Parse JSON fields if necessary
-        products.forEach(product => {
-          product.mediaItems = JSON.parse(product.mediaItems || '[]');
-        });
-
-        collection.products = products;
       }
 
       return reply.send({ ...store, collections });
