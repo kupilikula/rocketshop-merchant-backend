@@ -24,15 +24,15 @@ module.exports = async function (fastify, opts) {
         return reply.status(404).send({ error: 'Collection not found.' });
       }
 
-      // Fetch products in the collection
-      const products = await knex('products')
-          .where({ storeId })
-          .andWhereRaw('? = ANY("collectionIds")', [collectionId]) // Match collectionId in collectionIds array
-          .orderBy('displayOrder', 'asc'); // Fetch all products ordered by displayOrder
-
-      products.forEach(product => {
-        product.mediaItems = JSON.parse(product.mediaItems || '[]');
-      });
+      // Fetch products in the collection using productCollections table
+      const products = await knex('productCollections')
+          .join('products', 'productCollections.productId', 'products.productId')
+          .where({ 'productCollections.collectionId': collectionId })
+          .select(
+              'products.*',
+              'productCollections.displayOrder'
+          )
+          .orderBy('productCollections.displayOrder', 'asc');
 
       return reply.send({ ...collection, products });
     } catch (error) {
