@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 const knex = require("@database/knexInstance");
 const validateMerchantAccessToStore = require("../../../../utils/validateMerchantAccessToStore");
@@ -15,27 +15,53 @@ module.exports = async function (fastify, opts) {
         return reply.status(403).send({ error: 'Unauthorized access to this store.' });
       }
 
-      // Fetch all customers who have placed orders for this store
-      const customers = await knex('customers')
+      // Fetch customers and their orders in a single query
+      const customerOrders = await knex('customers')
           .join('orders', 'customers.customerId', 'orders.customerId')
           .where('orders.storeId', storeId)
-          .groupBy('customers.customerId')
           .select(
               'customers.*',
-              knex.raw('COUNT("orders"."orderId") as orderCount'), // Use double quotes
-              knex.raw('SUM("orders"."orderTotal") as totalSpent'),
-              knex.raw('MAX("orders"."orderDate") as lastOrderDate')
-          );
+              'orders.orderId',
+              'orders.orderStatus',
+              'orders.orderStatusUpdateTime',
+              'orders.orderTotal',
+              'orders.orderDate'
+          )
+          .orderBy('orders.orderDate', 'desc'); // Orders sorted by order date
 
-      if (!customers.length) {
+      if (!customerOrders.length) {
         return reply.status(404).send({ error: 'No customers found for this store.' });
       }
 
-      return reply.send(customers);
+      // Group orders by customerId
+      const groupedData = customerOrders.reduce((result, row) => {
+        const { orderId, orderStatus, orderStatusUpdateTime, orderTotal, orderDate, ...customerDetails } = row;
+
+        if (!result[row.customerId]) {
+          result[row.customerId] = {
+            ...customerDetails,
+            orders: [],
+          };
+        }
+
+        result[row.customerId].orders.push({
+          orderId,
+          orderStatus,
+          orderStatusUpdateTime,
+          orderTotal,
+          orderDate,
+        });
+
+        return result;
+      }, {});
+
+      // Convert grouped data back to an array
+      const customersWithOrders = Object.values(groupedData);
+
+      return reply.send(customersWithOrders);
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch customers.' });
     }
   });
-
-}
+};
