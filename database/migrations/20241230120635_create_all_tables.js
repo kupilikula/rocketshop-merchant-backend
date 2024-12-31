@@ -47,6 +47,13 @@ exports.up = async function(knex) {
         table.text("description").nullable();
         table.decimal("price", 10, 2).notNullable();
         table.integer("stock").notNullable();
+        table.decimal('gstRate').notNullable().defaultTo(0);
+        table.boolean('gstInclusive').notNullable().defaultTo(false);
+        table.decimal('rating').defaultTo(0);
+        table.integer('numberOfRatings').notNullable().defaultTo(0);
+        table.boolean('enableRatings').notNullable().defaultTo(true);
+        table.boolean('enableReviews').notNullable().defaultTo(true);
+        table.boolean('enableStockTracking').notNullable().defaultTo(true);
         table.jsonb("productTags").defaultTo("[]"); // Array of tags
         table.jsonb("attributes").defaultTo("[]"); // Array of tags
         table.jsonb("mediaItems").defaultTo("[]"); // Storing mediaItems as JSON

@@ -79,7 +79,7 @@ exports.seed = async function (knex) {
     }
     await knex('collections').insert(collections);
 
-    // Seed products
+// Seed products
     const products = [];
     for (const collection of collections) {
         const numProducts = faker.number.int({ min: 1, max: 10 });
@@ -87,23 +87,36 @@ exports.seed = async function (knex) {
             products.push({
                 productId: faker.string.uuid(),
                 productName: faker.commerce.productName(),
-                price: faker.commerce.price(),
+                price: faker.commerce.price({ min: 10, max: 10000, dec: 2 }),
                 stock: faker.number.int({ min: 0, max: 100 }),
                 isActive: faker.datatype.boolean(),
-                productTags: JSON.stringify(faker.helpers.uniqueArray(
-                    () => faker.word.adjective(),
-                    faker.number.int({ min: 0, max: 10 }))),
-                storeId: collection.storeId,
-                mediaItems: JSON.stringify(
-                    faker.helpers.multiple(() =>               (      {
-                        mediaId: faker.string.uuid(),
-                            mediaType: "image",
-                            uri: faker.image.url(),
-                            orientation: "landscape",
-                            desc: faker.string.alpha(),
-                    }), {count: 3}
+                productTags: JSON.stringify(
+                    faker.helpers.uniqueArray(
+                        () => faker.word.adjective(),
+                        faker.number.int({ min: 0, max: 10 })
                     )
                 ),
+                storeId: collection.storeId,
+                mediaItems: JSON.stringify(
+                    faker.helpers.multiple(() => ({
+                        mediaId: faker.string.uuid(),
+                        mediaType: "image",
+                        uri: faker.image.url(),
+                        orientation: "landscape",
+                        desc: faker.lorem.sentence(),
+                    }), { count: 3 })
+                ),
+
+                // New Fields
+                gstRate: faker.number.float({ min: 0, max: 28, fractionDigits: 1 }), // GST rates in India range up to 28%
+                gstInclusive: faker.datatype.boolean(),
+                rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
+                numberOfRatings: faker.number.int({ min: 0, max: 500 }),
+                enableRatings: faker.datatype.boolean(),
+                enableReviews: faker.datatype.boolean(),
+                enableStockTracking: faker.datatype.boolean(),
+
+                // Timestamps
                 created_at: new Date(),
                 updated_at: new Date(),
             });
