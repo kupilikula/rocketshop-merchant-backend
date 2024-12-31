@@ -17,6 +17,7 @@ module.exports = async function (fastify, opts) {
 
       // Fetch all products for the store, selecting all fields
       const uniqueTags = await knex('products')
+          .where({storeId})
           .select(knex.raw('DISTINCT jsonb_array_elements_text("productTags") AS tag'));
       const uniqueTagsArray = uniqueTags.map(row => row.tag);
       console.log(uniqueTagsArray);
