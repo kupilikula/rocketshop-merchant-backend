@@ -125,10 +125,26 @@ exports.seed = async function (knex) {
             });
         }
     }
-    console.log('insert products.length:', products.length);
-    console.log('inserting products:', products);
 
-    await knex('products').insert(products);
+    const chunkSize = 500; // Insert 500 products at a time to stay within limits
+
+    console.log(`Inserting ${products.length} products in chunks of ${chunkSize}...`);
+    for (let i = 0; i < products.length; i += chunkSize) {
+        const chunk = products.slice(i, i + chunkSize);
+        try {
+            await knex('products').insert(chunk);
+            console.log(`Inserted chunk ${Math.floor(i / chunkSize) + 1}`);
+        } catch (error) {
+            console.error(`Error inserting chunk ${Math.floor(i / chunkSize) + 1}:`, error);
+            throw error; // Exit the script if an error occurs
+        }
+    }
+
+    console.log('Product seeding completed!');
+    // console.log('insert products.length:', products.length);
+    // console.log('inserting products:', products);
+    //
+    // await knex('products').insert(products);
 
     // Seed productCollections for ordering of products within collections
     const productCollections = [];
