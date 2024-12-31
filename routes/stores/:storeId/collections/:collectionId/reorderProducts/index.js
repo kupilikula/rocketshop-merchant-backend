@@ -17,10 +17,19 @@ module.exports = async function (fastify, opts) {
         return reply.status(403).send({ error: 'Unauthorized access to this store.' });
       }
 
+      // Validate if the collection belongs to the store
+      const collection = await knex('collections')
+          .where({ collectionId, storeId })
+          .first();
+
+      if (!collection) {
+        return reply.status(404).send({ error: 'Collection not found for this store.' });
+      }
+
       // Update displayOrder for products in the collection
       const updatePromises = productOrders.map(({ productId, displayOrder }) =>
-          knex('products')
-              .where({ productId, storeId })
+          knex('productCollections')
+              .where({ collectionId, productId })
               .update({ displayOrder })
       );
 

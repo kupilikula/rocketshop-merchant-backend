@@ -58,7 +58,6 @@ exports.up = async function(knex) {
         table.jsonb("attributes").defaultTo("[]"); // Array of tags
         table.jsonb("mediaItems").defaultTo("[]"); // Storing mediaItems as JSON
         table.boolean("isActive").defaultTo(false);
-        table.integer("displayOrder").defaultTo(0);
         table.timestamps(true, true);
 
         table.foreign("storeId").references("stores.storeId").onDelete("CASCADE");
