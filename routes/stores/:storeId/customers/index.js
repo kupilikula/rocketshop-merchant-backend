@@ -24,7 +24,7 @@ module.exports = async function (fastify, opts) {
               'orders.orderId',
               'orders.orderStatus',
               'orders.orderStatusUpdateTime',
-              'orders.orderTotal',
+              knex.raw('CAST("orders"."orderTotal" AS DOUBLE PRECISION) as orderTotal'),
               'orders.orderDate'
           )
           .orderBy('orders.orderDate', 'desc'); // Orders sorted by order date
