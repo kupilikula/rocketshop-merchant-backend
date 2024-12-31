@@ -31,9 +31,9 @@ exports.up = async function(knex) {
         table.uuid("collectionId").primary();
         table.uuid("storeId").notNullable();
         table.string("collectionName").notNullable();
-        table.boolean("isActive").defaultTo(false);
-        table.boolean("storeFrontDisplay").defaultTo(false);
-        table.integer("storeFrontDisplayNumberOfItems").defaultTo(0);
+        table.boolean("isActive").defaultTo(true);
+        table.boolean("storeFrontDisplay").defaultTo(true);
+        table.integer("storeFrontDisplayNumberOfItems").defaultTo(4);
         table.integer("displayOrder").defaultTo(0);
         table.timestamps(true, true);
 

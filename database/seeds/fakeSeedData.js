@@ -71,6 +71,8 @@ exports.seed = async function (knex) {
                 collectionName: faker.commerce.department(),
                 storeId: store.storeId,
                 isActive: faker.datatype.boolean(),
+                storeFrontDisplay: faker.datatype.boolean(),
+                storeFrontDisplayNumberOfItems: faker.helpers.arrayElement([2,4,6,8]),
                 displayOrder: i + 1,
                 created_at: new Date(),
                 updated_at: new Date(),

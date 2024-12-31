@@ -32,11 +32,14 @@ module.exports = async function (fastify, opts) {
       for (const collection of collections) {
         // Fetch products for each collection
         // Fetch products in the collection using productCollections table
-        collection.products = await knex('productCollections')
+        let products = await knex('productCollections')
             .join('products', 'productCollections.productId', 'products.productId')
             .where({'productCollections.collectionId': collection.collectionId, isActive: true})
-            .orderBy('productCollections.displayOrder', 'asc')
-            .limit(collection.storeFrontDisplayNumberOfItems);
+            .orderBy('productCollections.displayOrder', 'asc');
+
+        collection.numberOfActiveProducts = products.length;
+        collection.displayProducts = products.slice(0, collection.storeFrontDisplayNumberOfItems);
+
       }
 
       return reply.send({ ...store, collections });
