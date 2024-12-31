@@ -41,6 +41,7 @@ module.exports = async function (fastify, opts) {
                     'oi.productId',
                     'oi.quantity',
                     'p.productName',
+                    'p.description',
                     'p.price',
                     'p.mediaItems'
                 );
