@@ -46,11 +46,6 @@ module.exports = async function (fastify, opts) {
                     'p.mediaItems'
                 );
 
-            // Parse mediaItems from JSON
-            orderItems.forEach(item => {
-                item.mediaItems = JSON.parse(item.mediaItems || '[]');
-            });
-
             // Combine the data into a single response
             const response = {
                 ...order,
