@@ -21,10 +21,7 @@ module.exports = async function (fastify, opts) {
           .where('orders.storeId', storeId)
           .groupBy('customers.customerId')
           .select(
-              'customers.customerId',
-              'customers.fullName',
-              'customers.email',
-              'customers.phoneNumber',
+              'customers.*',
               knex.raw('COUNT(orders.orderId) as orderCount'),
               knex.raw('SUM(orders.orderTotal) as totalSpent'),
               knex.raw('MAX(orders.orderDate) as lastOrderDate') // Fetch last order date

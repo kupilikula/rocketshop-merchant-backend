@@ -30,7 +30,7 @@ module.exports = async function (fastify, opts) {
           .where({ customerId, storeId })
           .orderBy('orderDate', 'desc');
 
-      return reply.send({ customer, orders });
+      return reply.send({ ...customer, orders });
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch customer details.' });
