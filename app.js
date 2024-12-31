@@ -26,7 +26,7 @@ module.exports = async function (fastify, opts) {
 
     // try {
       // const user = jwt.verify(token, JWT_SECRET); // Verify the token
-      request.user = {merchantId: "61c6f62d-27d3-44be-9eae-d34d95f94e32"}; // Attach the user to the request object
+      request.user = {merchantId: "38bb7fa0-7326-45f1-b821-2f76adf2ee26"}; // Attach the user to the request object
     // } catch (err) {
     //   return reply.status(401).send({ error: 'Invalid token' });
     // }
