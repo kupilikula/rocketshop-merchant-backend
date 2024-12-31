@@ -111,7 +111,7 @@ exports.seed = async function (knex) {
                 ),
 
                 // New Fields
-                gstRate: faker.number.float({ min: 0, max: 28, fractionDigits: 1 }), // GST rates in India range up to 28%
+                gstRate: faker.helpers.arrayElement([0,5,12,18,28]), // GST rates in India range up to 28%
                 gstInclusive: faker.datatype.boolean(),
                 rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
                 numberOfRatings: faker.number.int({ min: 0, max: 500 }),
@@ -125,6 +125,9 @@ exports.seed = async function (knex) {
             });
         }
     }
+    console.log('insert products.length:', products.length);
+    console.log('inserting products:', products);
+
     await knex('products').insert(products);
 
     // Seed productCollections for ordering of products within collections
