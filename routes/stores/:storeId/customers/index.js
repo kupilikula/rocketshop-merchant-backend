@@ -24,10 +24,12 @@ module.exports = async function (fastify, opts) {
               'orders.orderId',
               'orders.orderStatus',
               'orders.orderStatusUpdateTime',
-              knex.raw('CAST("orders"."orderTotal" AS DOUBLE PRECISION) as orderTotal'),
+              knex.raw('CAST("orders"."orderTotal" AS DOUBLE PRECISION) as "orderTotal"'),
               'orders.orderDate'
           )
           .orderBy('orders.orderDate', 'desc'); // Orders sorted by order date
+
+      console.log('customerOrders:', customerOrders);
 
       if (!customerOrders.length) {
         return reply.status(404).send({ error: 'No customers found for this store.' });
