@@ -87,6 +87,7 @@ exports.seed = async function (knex) {
             products.push({
                 productId: faker.string.uuid(),
                 productName: faker.commerce.productName(),
+                description: faker.lorem.text(),
                 price: faker.commerce.price({ min: 10, max: 10000, dec: 2 }),
                 stock: faker.number.int({ min: 0, max: 100 }),
                 isActive: faker.datatype.boolean(),
