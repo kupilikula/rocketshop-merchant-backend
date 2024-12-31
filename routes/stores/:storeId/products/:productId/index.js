@@ -24,10 +24,6 @@ module.exports = async function (fastify, opts) {
         return reply.status(404).send({ error: 'Product not found.' });
       }
 
-      // Format mediaItems if stored as JSON
-      product.mediaItems = JSON.parse(product.mediaItems || '[]');
-      product.attributes = JSON.parse(product.attributes || '[]');
-
       return reply.send(product);
     } catch (error) {
       request.log.error(error);
