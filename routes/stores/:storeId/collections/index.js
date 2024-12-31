@@ -29,8 +29,8 @@ module.exports = async function (fastify, opts) {
           .join('products', 'productCollections.productId', 'products.productId')
           .select(
               'productCollections.collectionId',
-              knex.raw('SUM(CASE WHEN products.isActive THEN 1 ELSE 0 END) as activeProducts'),
-              knex.raw('SUM(CASE WHEN NOT products.isActive THEN 1 ELSE 0 END) as inactiveProducts')
+              knex.raw('SUM(CASE WHEN "products"."isActive" THEN 1 ELSE 0 END) as "activeProducts"'),
+              knex.raw('SUM(CASE WHEN NOT "products"."isActive" THEN 1 ELSE 0 END) as "inactiveProducts"')
           )
           .whereIn('productCollections.collectionId', collections.map((c) => c.collectionId))
           .groupBy('productCollections.collectionId');
