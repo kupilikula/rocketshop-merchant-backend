@@ -22,9 +22,9 @@ module.exports = async function (fastify, opts) {
           .groupBy('customers.customerId')
           .select(
               'customers.*',
-              knex.raw('COUNT(orders.orderId) as orderCount'),
-              knex.raw('SUM(orders.orderTotal) as totalSpent'),
-              knex.raw('MAX(orders.orderDate) as lastOrderDate') // Fetch last order date
+              knex.raw('COUNT("orders"."orderId") as orderCount'), // Use double quotes
+              knex.raw('SUM("orders"."orderTotal") as totalSpent'),
+              knex.raw('MAX("orders"."orderDate") as lastOrderDate')
           );
 
       if (!customers.length) {
