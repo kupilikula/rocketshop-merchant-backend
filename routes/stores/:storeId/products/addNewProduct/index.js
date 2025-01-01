@@ -6,19 +6,6 @@ const validateMerchantAccessToStore = require("../../../../../utils/validateMerc
 module.exports = async function (fastify, opts) {
   fastify.post('/', async (request, reply) => {
     const { storeId } = request.params;
-    const {
-      productName,
-      description,
-      price,
-      stock,
-      gstRate,
-      gstInclusive,
-      attributes = [],
-      mediaItems = [],
-      collectionIds = [],
-      productTags = [],
-      isActive = true,
-    } = request.body;
 
     try {
       // Validate the merchant's access to the store
@@ -28,27 +15,21 @@ module.exports = async function (fastify, opts) {
         return reply.status(403).send({ error: 'Unauthorized access to this store.' });
       }
 
-      // Insert the new product into the database
-      const [newProductId] = await knex('products')
-          .insert({
-            storeId,
-            productName,
-            description,
-            price,
-            stock,
-            gstRate,
-            gstInclusive,
-            attributes: JSON.stringify(attributes),
-            mediaItems: JSON.stringify(mediaItems),
-            collectionIds: JSON.stringify(collectionIds),
-            productTags: JSON.stringify(productTags),
-            isActive,
-            created_at: new Date(),
-            updated_at: new Date(),
-          })
-          .returning('productId'); // Return the ID of the newly created product
+      const newProduct = request.body
+      const insertProduct = {
+          ...newProduct,
+          attributes: JSON.stringify(newProduct.attributes),
+          mediaItems: JSON.stringify(newProduct.mediaItems),
+          productTags: JSON.stringify(newProduct.productTags),
+          created_at: new Date(),
+          updated_at: new Date(),
+      }
 
-      return reply.send({ message: 'Product added successfully.', productId: newProductId });
+      // Insert the new product into the database
+      const insertedProductId = await knex('products')
+          .insert(insertProduct);
+
+      return reply.send({ message: 'Product added successfully.', productId: insertedProductId });
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to add product.' });
