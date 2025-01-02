@@ -20,6 +20,7 @@ module.exports = async function (fastify, opts) {
 
       const insertProduct = {
           ...newProduct,
+          storeId:  storeId,
           attributes: JSON.stringify(newProduct.attributes),
           mediaItems: JSON.stringify(newProduct.mediaItems),
           productTags: JSON.stringify(newProduct.productTags),
