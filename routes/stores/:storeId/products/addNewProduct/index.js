@@ -16,6 +16,8 @@ module.exports = async function (fastify, opts) {
       }
 
       const newProduct = request.body
+      const collectionIds = newProduct.collections;
+
       const insertProduct = {
           ...newProduct,
           attributes: JSON.stringify(newProduct.attributes),
@@ -24,10 +26,38 @@ module.exports = async function (fastify, opts) {
           created_at: new Date(),
           updated_at: new Date(),
       }
+      delete insertProduct.collections;
 
       // Insert the new product into the database
       const insertedProductId = await knex('products')
           .insert(insertProduct);
+
+      // Insert rows in the productCollections table
+        if (Array.isArray(collectionIds) && collectionIds.length > 0) {
+            const productCollectionsData = [];
+
+            for (const collectionId of collectionIds) {
+                // Fetch the current maximum displayOrder for the collection
+                const maxDisplayOrder = await knex('productCollections')
+                    .where({ collectionId })
+                    .max('displayOrder as maxOrder')
+                    .first();
+
+                // Set the displayOrder to the next available position (last index + 1)
+                const displayOrder = (maxDisplayOrder?.maxOrder || 0) + 1;
+
+                productCollectionsData.push({
+                    productId: insertedProductId,
+                    collectionId,
+                    displayOrder,
+                    created_at: new Date(),
+                    updated_at: new Date(),
+                });
+            }
+
+            await knex('productCollections').insert(productCollectionsData);
+        }
+
 
       return reply.send({ message: 'Product added successfully.', productId: insertedProductId });
     } catch (error) {
