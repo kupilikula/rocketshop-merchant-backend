@@ -30,9 +30,9 @@ module.exports = async function (fastify, opts) {
       delete insertProduct.collections;
 
       // Insert the new product into the database
-      await knex('products')
+      let r = await knex('products')
           .insert(insertProduct);
-
+        console.log('r:', r);
       // Insert rows in the productCollections table
         if (Array.isArray(collectionIds) && collectionIds.length > 0) {
             const productCollectionsData = [];
@@ -60,7 +60,7 @@ module.exports = async function (fastify, opts) {
         }
 
 
-      return reply.send({ message: 'Product added successfully.', productId: insertedProductId });
+      return reply.send({ message: 'Product added successfully.'});
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to add product.' });
