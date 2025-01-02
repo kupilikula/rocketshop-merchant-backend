@@ -17,8 +17,8 @@ const s3 = new AWS.S3({
 module.exports = async function (fastify, opts) {
   fastify.post('/', async (request, reply) => {
     const { storeId } = request.params;
-    const {mediaItems} = request.body;
-    if (!storeId || !mediaItems || !Array.isArray(mediaItems)) {
+    const {fileKeysWithContentTypes} = request.body;
+    if (!storeId || !fileKeysWithContentTypes || !Array.isArray(fileKeysWithContentTypes)) {
       return reply.status(400).send({ error: 'Invalid request. storeId and mediaItems are required.' });
     }
 
@@ -32,7 +32,7 @@ module.exports = async function (fastify, opts) {
 
       // Generate presigned URLs for all fileKeys
       const presignedUrls = await Promise.all(
-          mediaItems.map(async (item) => {
+          fileKeysWithContentTypes.map(async (item) => {
             const params = {
               Bucket: 'pocketshop-media', // Replace with your Space name
               Key: item.fileKey,

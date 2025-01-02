@@ -30,7 +30,7 @@ module.exports = async function (fastify, opts) {
       delete insertProduct.collections;
 
       // Insert the new product into the database
-      const insertedProductId = await knex('products')
+      const [insertedProductId] = await knex('products')
           .insert(insertProduct);
 
       // Insert rows in the productCollections table
