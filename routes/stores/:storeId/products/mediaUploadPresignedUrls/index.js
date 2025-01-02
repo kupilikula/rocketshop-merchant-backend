@@ -6,7 +6,7 @@ const knex = require("@database/knexInstance");
 const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 // Configure AWS SDK
-const spacesEndpoint = new AWS.Endpoint('pocketshop-media.blr1.digitaloceanspaces.com');
+const spacesEndpoint = new AWS.Endpoint('blr1.digitaloceanspaces.com');
 const s3 = new AWS.S3({
   endpoint: spacesEndpoint,
   accessKeyId: process.env.SPACES_ACCESS_KEY_ID,
