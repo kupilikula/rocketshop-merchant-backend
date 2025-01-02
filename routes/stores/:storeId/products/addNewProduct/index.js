@@ -48,7 +48,7 @@ module.exports = async function (fastify, opts) {
                 const displayOrder = (maxDisplayOrder?.maxOrder || 0) + 1;
 
                 productCollectionsData.push({
-                    productId: insertedProductId,
+                    productId: newProduct.productId,
                     collectionId,
                     displayOrder,
                     created_at: new Date(),
