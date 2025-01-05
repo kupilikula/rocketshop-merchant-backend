@@ -6,19 +6,19 @@ const validateMerchantAccessToStore = require("../../../../../../utils/validateM
 module.exports = async function (fastify, opts) {
   fastify.put('/', async (request, reply) => {
     const { storeId, productId } = request.params;
-    const {
-      productName,
-      description,
-      price,
-      stock,
-      gstRate,
-      gstInclusive,
-      attributes = [],
-      mediaItems = [],
-      collectionIds = [],
-      productTags = [],
-      isActive,
-    } = request.body;
+    // const {
+    //   productName,
+    //   description,
+    //   price,
+    //   stock,
+    //   gstRate,
+    //   gstInclusive,
+    //   attributes = [],
+    //   mediaItems = [],
+    //   collectionIds = [],
+    //   productTags = [],
+    //   isActive,
+    // } = request.body;
 
     try {
       // Validate the merchant's access to the store
@@ -37,21 +37,19 @@ module.exports = async function (fastify, opts) {
         return reply.status(404).send({ error: 'Product not found.' });
       }
 
+      let updatedData = request.body;
+      if (updatedData.mediaItems) {
+          delete updatedData.mediaItems;
+      }
+
       // Update the product in the database
       const updatedRows = await knex('products')
           .where({ productId, storeId })
           .update({
-            productName,
-            description,
-            price,
-            stock,
-            gstRate,
-            gstInclusive,
-            attributes: JSON.stringify(attributes),
-            mediaItems: JSON.stringify(mediaItems),
-            collectionIds: JSON.stringify(collectionIds),
-            productTags: JSON.stringify(productTags),
-            isActive,
+              ...updatedData,
+            attributes: JSON.stringify(request.body.attributes),
+            collectionIds: JSON.stringify(request.body.collectionIds),
+            productTags: JSON.stringify(request.body.productTags),
             updated_at: new Date(),
           });
 
