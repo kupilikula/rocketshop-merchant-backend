@@ -25,6 +25,7 @@ module.exports = async function (fastify, opts) {
             }
 
             let updatedData = request.body;
+            console.log('updatedData:', updatedData);
             const updatedCollections = updatedData.collections || [];
             delete updatedData.collections; // Remove collections from updatedData
 

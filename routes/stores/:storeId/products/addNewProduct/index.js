@@ -1,5 +1,5 @@
 'use strict'
-
+const { v4: uuidv4 } = require("uuid");
 const knex = require("@database/knexInstance");
 const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
@@ -83,9 +83,10 @@ module.exports = async function (fastify, opts) {
                 variantGroupId = parentVariant.variantGroupId;
             } else {
                 // Create a new variant group
+
                 const [newGroup] = await knex("variantGroups").insert(
                     {
-                        variantGroupId: knex.raw("uuid_generate_v4()"),
+                        variantGroupId: uuidv4(),
                         storeId,
                         name: `Variant Group for ${parentProduct.productName}`,
                     },
@@ -102,7 +103,7 @@ module.exports = async function (fastify, opts) {
 
                 // Add parent product to the new group
                 await knex("productVariants").insert({
-                    productVariantId: knex.raw("uuid_generate_v4()"),
+                    productVariantId: uuidv4(),
                     productId: parentProductId,
                     variantGroupId,
                     differingAttributes: JSON.stringify(parentDifferingAttributes),
@@ -111,7 +112,7 @@ module.exports = async function (fastify, opts) {
 
             // Add the new product to the variant group
             await knex("productVariants").insert({
-                productVariantId: knex.raw("uuid_generate_v4()"),
+                productVariantId: uuidv4(),
                 productId: newProduct.productId,
                 variantGroupId,
                 differingAttributes: JSON.stringify(differingAttributes),
