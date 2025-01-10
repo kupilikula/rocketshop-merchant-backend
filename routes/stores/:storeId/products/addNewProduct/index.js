@@ -97,7 +97,7 @@ module.exports = async function (fastify, opts) {
 
                 // Compute parent product's differing attributes
                 const parentDifferingAttributes = differingAttributes.map(({ key }) => {
-                    const parentValue = JSON.parse(parentProduct.attributes).find((attr) => attr.key === key)?.value;
+                    const parentValue = parentProduct.attributes.find((attr) => attr.key === key)?.value;
                     return { key, value: parentValue || null };
                 });
 
