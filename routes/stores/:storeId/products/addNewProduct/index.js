@@ -17,6 +17,7 @@ module.exports = async function (fastify, opts) {
 
       const newProduct = request.body
       const collectionIds = newProduct.collections;
+      const variantInfo = newProduct.variantInfo || undefined;
 
       const insertProduct = {
           ...newProduct,
@@ -28,6 +29,7 @@ module.exports = async function (fastify, opts) {
           updated_at: new Date(),
       }
       delete insertProduct.collections;
+      delete insertProduct.variantInfo;
 
       // Insert the new product into the database
       await knex('products')
@@ -57,6 +59,63 @@ module.exports = async function (fastify, opts) {
             }
 
             await knex('productCollections').insert(productCollectionsData);
+        }
+
+        // Handle variant functionality if provided
+        if (variantInfo) {
+            const { parentProductId, differingAttributes } = variantInfo;
+
+            // Fetch parent product
+            const parentProduct = await knex("products").where({ productId: parentProductId }).first();
+            if (!parentProduct) {
+                return res.status(400).json({ error: "Parent product does not exist." });
+            }
+
+            // Fetch parent product's variant group (if it exists)
+            const parentVariant = await knex("productVariants")
+                .where({ productId: parentProductId })
+                .first();
+
+            let variantGroupId;
+
+            if (parentVariant) {
+                // Use the existing variant group
+                variantGroupId = parentVariant.variantGroupId;
+            } else {
+                // Create a new variant group
+                const [newGroup] = await knex("variantGroups").insert(
+                    {
+                        variantGroupId: knex.raw("uuid_generate_v4()"),
+                        storeId,
+                        name: `Variant Group for ${parentProduct.productName}`,
+                    },
+                    ["variantGroupId"]
+                );
+
+                variantGroupId = newGroup.variantGroupId;
+
+                // Compute parent product's differing attributes
+                const parentDifferingAttributes = differingAttributes.map(({ key }) => {
+                    const parentValue = JSON.parse(parentProduct.attributes).find((attr) => attr.key === key)?.value;
+                    return { key, value: parentValue || null };
+                });
+
+                // Add parent product to the new group
+                await knex("productVariants").insert({
+                    productVariantId: knex.raw("uuid_generate_v4()"),
+                    productId: parentProductId,
+                    variantGroupId,
+                    differingAttributes: JSON.stringify(parentDifferingAttributes),
+                });
+            }
+
+            // Add the new product to the variant group
+            await knex("productVariants").insert({
+                productVariantId: knex.raw("uuid_generate_v4()"),
+                productId: newProduct.productId,
+                variantGroupId,
+                differingAttributes: JSON.stringify(differingAttributes),
+            });
         }
 
 

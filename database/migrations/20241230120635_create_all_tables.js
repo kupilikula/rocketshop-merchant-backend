@@ -73,6 +73,33 @@ exports.up = async function(knex) {
         table.foreign("collectionId").references("collections.collectionId").onDelete("CASCADE");
     });
 
+    // Create variantGroups table
+    await knex.schema.createTable("variantGroups", (table) => {
+        table.uuid("variantGroupId").primary(); // Primary key
+        table.uuid("storeId").notNullable(); // FK to stores
+        table.string("name").notNullable(); // Name of the variant group
+        table.timestamps(true, true); // Created and updated timestamps
+
+        // Foreign key constraint
+        table.foreign("storeId").references("stores.storeId").onDelete("CASCADE");
+    });
+
+    // Create productVariants table
+    await knex.schema.createTable("productVariants", (table) => {
+        table.uuid("productVariantId").primary(); // Primary key
+        table.uuid("productId").notNullable(); // FK to products
+        table.uuid("variantGroupId").notNullable(); // FK to variantGroups
+        table.jsonb("differingAttributes").notNullable(); // JSONB column for differing attributes
+        table.timestamps(true, true); // Created and updated timestamps
+
+        // Foreign key constraints
+        table.foreign("productId").references("products.productId").onDelete("CASCADE");
+        table.foreign("variantGroupId").references("variantGroups.variantGroupId").onDelete("CASCADE");
+
+        // Ensure uniqueness of productId within a group
+        table.unique(["productId", "variantGroupId"]);
+    });
+
     await knex.schema.createTable("customers", function(table) {
         table.uuid("customerId").primary();
         table.string("fullName").notNullable();
@@ -136,6 +163,8 @@ exports.down = async function(knex) {
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
     await knex.schema.dropTableIfExists("orders");
+    await knex.schema.dropTableIfExists("productVariants");
+    await knex.schema.dropTableIfExists("variantGroups");
     await knex.schema.dropTableIfExists("productCollections");
     await knex.schema.dropTableIfExists("products");
     await knex.schema.dropTableIfExists("collections");
