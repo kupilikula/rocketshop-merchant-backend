@@ -164,7 +164,7 @@ exports.up = async function (knex) {
     });
 
     await knex.raw(`
-    CREATE INDEX idx_products_productTags ON products USING gin(productTags);
+    CREATE INDEX idx_products_productTags ON products USING gin("productTags");
     CREATE INDEX idx_products_attributes ON products USING gin(attributes);
   `);
 
@@ -178,7 +178,7 @@ exports.up = async function (knex) {
     });
 
     await knex.raw(`
-    CREATE INDEX idx_stores_storeTags ON stores USING gin(storeTags);
+    CREATE INDEX idx_stores_storeTags ON stores USING gin("storeTags");
   `);
 };
 
