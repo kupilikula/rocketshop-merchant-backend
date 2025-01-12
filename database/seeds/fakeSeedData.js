@@ -10,62 +10,84 @@ exports.seed = async function (knex) {
     await knex('productCollections').del();
     await knex('products').del();
     await knex('collections').del();
+    await knex('customer_followed_stores').del();
     await knex('merchantStores').del();
     await knex('stores').del();
     await knex('customers').del();
     await knex('merchants').del();
 
-    const merchants = Array.from({ length: 10 }, () => ({
-        merchantId: faker.string.uuid(),
-        merchantName: faker.person.fullName(),
-        merchantPhone: faker.phone.number({style: 'international'}),
-        merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
-        created_at: new Date(),
-        updated_at: new Date(),
-    }));
+    // Helper function to generate realistic timestamps
+    const generateTimestamps = () => {
+        const created_at = faker.date.past(2); // Random date in the past 2 years
+        const updated_at = faker.date.between(created_at, new Date()); // After created_at but before now
+        return { created_at, updated_at };
+    };
+
+    const merchants = Array.from({ length: 10 }, () => {
+        const { created_at, updated_at } = generateTimestamps();
+        return {
+            merchantId: faker.string.uuid(),
+            merchantName: faker.person.fullName(),
+            merchantPhone: faker.phone.number({ style: 'international' }),
+            merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
+            created_at,
+            updated_at,
+        };
+    });
     await knex('merchants').insert(merchants);
+    console.log('Merchants seeded.');
 
     // Seed stores
-    const stores = Array.from({ length: 10 }, () => ({
-        storeId: faker.string.uuid(),
-        storeName: faker.company.name(),
-        storeDescription: faker.lorem.text(),
-        storeBrandColor: faker.color.rgb(),
-        storeLogoImage: faker.image.url(),
-        storeTags: JSON.stringify(faker.helpers.uniqueArray(
-            () => faker.word.adjective(),
-            faker.number.int({ min: 0, max: 10 }))),
-        created_at: new Date(),
-        updated_at: new Date(),
-    }));
+    console.log('Seeding stores...');
+    const stores = Array.from({ length: 10 }, () => {
+        const { created_at, updated_at } = generateTimestamps();
+        return {
+            storeId: faker.string.uuid(),
+            storeName: faker.company.name(),
+            storeDescription: faker.lorem.text(),
+            storeBrandColor: faker.color.rgb(),
+            storeLogoImage: faker.image.url(),
+            storeTags: JSON.stringify(faker.helpers.uniqueArray(
+                () => faker.word.adjective(),
+                faker.number.int({ min: 0, max: 10 })
+            )),
+            created_at,
+            updated_at,
+        };
+    });
     await knex('stores').insert(stores);
+    console.log('Stores seeded.');
 
     // Seed merchantStores
+    console.log('Seeding merchantStores...');
     const merchantStores = [];
 
     for (const merchant of merchants) {
-        // Assign 1-3 random stores to each merchant
         const assignedStores = faker.helpers.arrayElements(stores, faker.number.int({ min: 1, max: 3 }));
 
         for (const store of assignedStores) {
+            const { created_at, updated_at } = generateTimestamps();
             merchantStores.push({
                 merchantStoreId: faker.string.uuid(),
                 merchantId: merchant.merchantId,
                 storeId: store.storeId,
                 role: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
-                created_at: new Date(),
-                updated_at: new Date(),
+                created_at,
+                updated_at,
             });
         }
     }
 
     await knex('merchantStores').insert(merchantStores);
+    console.log('MerchantStores seeded.');
 
-// Seed collections
+    // Seed collections
+    console.log('Seeding collections...');
     const collections = [];
     for (const store of stores) {
         const numCollections = faker.number.int({ min: 3, max: 10 });
         for (let i = 0; i < numCollections; i++) {
+            const { created_at, updated_at } = generateTimestamps();
             collections.push({
                 collectionId: faker.string.uuid(),
                 collectionName: faker.commerce.department(),
@@ -74,24 +96,27 @@ exports.seed = async function (knex) {
                 storeFrontDisplay: faker.datatype.boolean(),
                 storeFrontDisplayNumberOfItems: faker.helpers.arrayElement([2, 4, 6, 8]),
                 displayOrder: i + 1,
-                created_at: new Date(),
-                updated_at: new Date(),
+                created_at,
+                updated_at,
             });
         }
     }
     await knex('collections').insert(collections);
+    console.log('Collections seeded.');
 
-// Seed products and ensure each product belongs to at least one collection
+    // Seed products and ensure each product belongs to at least one collection
+    console.log('Seeding products...');
     const products = [];
     const productCollections = [];
-    const chunkSize = 500; // To handle large inserts in chunks
+    const chunkSize = 500;
 
     for (const collection of collections) {
         const numProducts = faker.number.int({ min: 10, max: 100 });
         for (let i = 0; i < numProducts; i++) {
+            const { created_at, updated_at } = generateTimestamps();
             const productId = faker.string.uuid();
 
-            const product = {
+            products.push({
                 productId,
                 productName: faker.commerce.productName(),
                 description: faker.lorem.text(),
@@ -114,34 +139,28 @@ exports.seed = async function (knex) {
                         desc: faker.lorem.sentence(),
                     }), { count: 3 })
                 ),
-
-                // New Fields
-                gstRate: faker.helpers.arrayElement([0, 5, 12, 18, 28]), // GST rates in India range up to 28%
+                gstRate: faker.helpers.arrayElement([0, 5, 12, 18, 28]),
                 gstInclusive: faker.datatype.boolean(),
                 rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
                 numberOfRatings: faker.number.int({ min: 0, max: 500 }),
                 enableRatings: faker.datatype.boolean(),
                 enableReviews: faker.datatype.boolean(),
                 enableStockTracking: faker.datatype.boolean(),
+                created_at,
+                updated_at,
+            });
 
-                // Timestamps
-                created_at: new Date(),
-                updated_at: new Date(),
-            };
-
-            // Ensure the product belongs to at least one collection
-            products.push(product);
             productCollections.push({
                 productId,
                 collectionId: collection.collectionId,
-                displayOrder: i + 1, // Use sequential ordering within the collection
-                created_at: new Date(),
-                updated_at: new Date(),
+                displayOrder: i + 1,
+                created_at,
+                updated_at,
             });
         }
     }
 
-// Insert products in chunks
+    // Insert products in chunks
     console.log(`Inserting ${products.length} products in chunks of ${chunkSize}...`);
     for (let i = 0; i < products.length; i += chunkSize) {
         const chunk = products.slice(i, i + chunkSize);
@@ -150,26 +169,31 @@ exports.seed = async function (knex) {
             console.log(`Inserted chunk ${Math.floor(i / chunkSize) + 1}`);
         } catch (error) {
             console.error(`Error inserting chunk ${Math.floor(i / chunkSize) + 1}:`, error);
-            throw error; // Exit the script if an error occurs
+            throw error;
         }
     }
+    console.log('Products seeded.');
 
-// Insert productCollections
+    // Insert productCollections
     console.log(`Inserting ${productCollections.length} productCollections...`);
     await knex('productCollections').insert(productCollections);
-    console.log('ProductCollections seeding completed!');
+    console.log('ProductCollections seeded.');
 
-    // Seed customers
-    const customers = Array.from({ length: 20 }, () => ({
-        customerId: faker.string.uuid(),
-        fullName: faker.person.fullName(),
-        email: faker.internet.email(),
-        phone: faker.phone.number(),
-        customerAddress: faker.location.streetAddress(),
-        created_at: new Date(),
-        updated_at: new Date(),
-    }));
+    console.log('Seeding customers...');
+    const customers = Array.from({ length: 20 }, () => {
+        const { created_at, updated_at } = generateTimestamps();
+        return {
+            customerId: faker.string.uuid(),
+            fullName: faker.person.fullName(),
+            email: faker.internet.email(),
+            phone: faker.phone.number(),
+            customerAddress: faker.location.streetAddress(),
+            created_at,
+            updated_at,
+        };
+    });
     await knex('customers').insert(customers);
+    console.log('Customers seeded.');
 
     // Seed customer_followed_stores
     const customerFollowedStores = [];
