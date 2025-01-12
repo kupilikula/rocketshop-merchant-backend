@@ -17,14 +17,17 @@ jobs:
           script: |
             export NVM_DIR=~/.nvm
             source ~/.nvm/nvm.sh
-            pm2 delete merchantApi
-            rm -rf merchant-backend       
-            mkdir merchant-backend
-            cd merchant-backend
+            mkdir tmp
+            cd tmp
             echo 'Cloning git repo'
             git clone git@github.com:PocketShopIndia/merchant-backend.git .
             echo 'Running npm install'
-            npm install
+            npm install            
+            cd ..
+            pm2 delete merchantApi
+            rm -rf merchant-backend       
+            mv tmp merchant-backend
+            cd merchant-backend
             echo 'Starting app.'
             pm2 start --name merchantApi npm -- run dev --
             echo 'Deployment to digital ocean finished'
