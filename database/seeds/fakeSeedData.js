@@ -19,7 +19,7 @@ exports.seed = async function (knex) {
     // Helper function to generate realistic timestamps
     const generateTimestamps = () => {
         const created_at = faker.date.past(2); // Random date in the past 2 years
-        const updated_at = faker.date.between(created_at, new Date()); // After created_at but before now
+        const updated_at = faker.date.between({from: created_at, to: new Date()}); // After created_at but before now
         return { created_at, updated_at };
     };
 
