@@ -171,6 +171,20 @@ exports.seed = async function (knex) {
     }));
     await knex('customers').insert(customers);
 
+    // Seed customer_followed_stores
+    const customerFollowedStores = [];
+    for (const customer of customers) {
+        const followedStores = faker.helpers.arrayElements(stores, faker.number.int({ min: 1, max: 5 }));
+        for (const store of followedStores) {
+            customerFollowedStores.push({
+                customerId: customer.customerId,
+                storeId: store.storeId,
+                followedAt: new Date(),
+            });
+        }
+    }
+    await knex('customer_followed_stores').insert(customerFollowedStores);
+
     // Seed orders
     const orders = [];
     const orderItemsData = [];
