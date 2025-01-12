@@ -18,6 +18,7 @@ exports.up = async function (knex) {
         table.string("storeBrandColor").nullable();
         table.text("storeDescription").notNullable();
         table.jsonb("storeTags").defaultTo("[]");
+        table.boolean("isActive").defaultTo(true);
         table.timestamps(true, true);
     });
 
