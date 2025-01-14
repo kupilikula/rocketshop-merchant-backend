@@ -51,6 +51,8 @@ exports.seed = async function (knex) {
                 () => faker.word.adjective(),
                 faker.number.int({ min: 0, max: 10 })
             )),
+            storeHandle: faker.internet.username(), // Random store handle
+            followerCount: 0, // Default to 0, will be updated after customer_followed_stores seeding
             created_at,
             updated_at,
         };
@@ -195,19 +197,35 @@ exports.seed = async function (knex) {
     await knex('customers').insert(customers);
     console.log('Customers seeded.');
 
-    // Seed customer_followed_stores
+    // Seed customer_followed_stores and update followerCount
+    console.log('Seeding customer_followed_stores and updating followerCount...');
     const customerFollowedStores = [];
+    const followerCounts = {};
+
     for (const customer of customers) {
         const followedStores = faker.helpers.arrayElements(stores, faker.number.int({ min: 1, max: 5 }));
+
         for (const store of followedStores) {
             customerFollowedStores.push({
                 customerId: customer.customerId,
                 storeId: store.storeId,
                 followedAt: new Date(),
             });
+
+            // Increment followerCount for the store
+            followerCounts[store.storeId] = (followerCounts[store.storeId] || 0) + 1;
         }
     }
+
     await knex('customer_followed_stores').insert(customerFollowedStores);
+
+    // Update followerCount in the stores table
+    for (const storeId in followerCounts) {
+        await knex('stores')
+            .where({ storeId })
+            .update({ followerCount: followerCounts[storeId] });
+    }
+    console.log('Customer_followed_stores seeded and followerCount updated.');
 
     // Seed orders
     const orders = [];
