@@ -237,7 +237,7 @@ exports.seed = async function (knex) {
                 id: faker.string.uuid(),
                 customerId: customer.customerId,
                 productId: product.productId,
-                savedAt: faker.date.recent(30), // Saved within the last 30 days
+                saved_at: faker.date.recent(30), // Saved within the last 30 days
             });
         }
     }
