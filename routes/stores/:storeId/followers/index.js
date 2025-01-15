@@ -17,7 +17,7 @@ module.exports = async function (fastify, opts) {
 
       // Fetch followers of the store
       const followers = await knex('customer_followed_stores as cfs')
-          .select('c.customerId', 'c.fullName', 'c.email', 'c.phone', 'c.customerAddress', 'cfs.followed_at')
+          .select('c.customerId', 'c.fullName', 'c.customerHandle', 'cfs.followed_at')
           .join('customers as c', 'cfs.customerId', 'c.customerId')
           .where('cfs.storeId', storeId)
           .orderBy('cfs.followed_at', 'desc');

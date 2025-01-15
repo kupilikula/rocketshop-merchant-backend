@@ -97,6 +97,7 @@ exports.up = async function (knex) {
     // Create `customers` table
     await knex.schema.createTable("customers", function (table) {
         table.uuid("customerId").primary();
+        table.string('customerHandle').unique().notNullable(); // Add storeHandle column, must be unique
         table.string("fullName").notNullable();
         table.string("email").nullable();
         table.string("phone").nullable();
