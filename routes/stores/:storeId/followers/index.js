@@ -4,7 +4,7 @@ const knex = require("@database/knexInstance");
 const validateMerchantAccessToStore = require("../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
-  fastify.get('/stores/:storeId/followers', async (request, reply) => {
+  fastify.get('/', async (request, reply) => {
     const { storeId } = request.params;
     const merchantId = request.user.merchantId; // Assuming authentication middleware adds this
 
