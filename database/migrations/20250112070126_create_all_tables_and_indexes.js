@@ -157,6 +157,15 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('customer_saved_items', (table) => {
+        table.uuid('id').primary();
+        table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
+        table.uuid('productId').notNullable().references('productId').inTable('products').onDelete('CASCADE');
+        table.timestamp('saved_at').defaultTo(knex.fn.now());
+
+        table.unique(['customerId', 'productId']); // Prevent duplicate saved items
+    });
+
     // Add full-text and GIN indexes for `products`
     await knex.schema.alterTable('products', (table) => {
         table.index(
@@ -186,6 +195,7 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
+    await knex.schema.dropTableIfExists('customer_saved_items');
     await knex.schema.dropTableIfExists("offers");
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
