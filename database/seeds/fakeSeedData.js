@@ -187,7 +187,7 @@ exports.seed = async function (knex) {
         const { created_at, updated_at } = generateTimestamps();
         return {
             customerId: faker.string.uuid(),
-            cuustomerHandle: faker.internet.username(), // Random store handle
+            customerHandle: faker.internet.username(), // Random store handle
             fullName: faker.person.fullName(),
             email: faker.internet.email(),
             phone: faker.phone.number(),
