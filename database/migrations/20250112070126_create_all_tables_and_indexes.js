@@ -108,7 +108,7 @@ exports.up = async function (knex) {
     await knex.schema.createTable('customer_followed_stores', function (table) {
         table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
         table.uuid('storeId').notNullable().references('storeId').inTable('stores').onDelete('CASCADE');
-        table.timestamp('followedAt').defaultTo(knex.fn.now());
+        table.timestamp('followed_at').defaultTo(knex.fn.now());
         table.primary(['customerId', 'storeId']);
     });
 
