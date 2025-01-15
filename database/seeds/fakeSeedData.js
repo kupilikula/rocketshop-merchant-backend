@@ -210,7 +210,7 @@ exports.seed = async function (knex) {
             customerFollowedStores.push({
                 customerId: customer.customerId,
                 storeId: store.storeId,
-                followedAt: new Date(),
+                followed_at: new Date(),
             });
 
             // Increment followerCount for the store
