@@ -3,6 +3,7 @@ const orderStatusList = require("../../utils/orderStatusList");
 
 exports.seed = async function (knex) {
     // Deletes ALL existing entries
+    await knex('customer_saved_items').del();
     await knex('offers').del();
     await knex('order_status_history').del();
     await knex('order_items').del();
@@ -226,6 +227,21 @@ exports.seed = async function (knex) {
             .update({ followerCount: followerCounts[storeId] });
     }
     console.log('Customer_followed_stores seeded and followerCount updated.');
+
+    // Seed saved_items
+    const savedItems = [];
+    for (const customer of customers) {
+        const savedProducts = faker.helpers.arrayElements(products, faker.number.int({ min: 1, max: 10 }));
+        for (const product of savedProducts) {
+            savedItems.push({
+                id: faker.string.uuid(),
+                customerId: customer.customerId,
+                productId: product.productId,
+                savedAt: faker.date.recent(30), // Saved within the last 30 days
+            });
+        }
+    }
+    await knex('customer_saved_items').insert(savedItems);
 
     // Seed orders
     const orders = [];
