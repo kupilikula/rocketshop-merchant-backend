@@ -53,6 +53,7 @@ exports.up = async function (knex) {
         table.text("description").nullable();
         table.decimal("price", 10, 2).notNullable();
         table.integer("stock").notNullable();
+        table.integer("reservedStock").notNullable().defaultTo(0);
         table.decimal('gstRate').notNullable().defaultTo(0);
         table.boolean('gstInclusive').notNullable().defaultTo(false);
         table.decimal('rating').defaultTo(0);
