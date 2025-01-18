@@ -1,7 +1,6 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
-const validateMerchantAccessToStore = require("../../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
 
@@ -10,13 +9,6 @@ module.exports = async function (fastify, opts) {
     const { productOrders } = request.body; // Example: [{ productId: 101, displayOrder: 1 }, ...]
 
     try {
-      // Validate the merchant's access to the store
-      const merchantId = request.user.merchantId;
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
-
       // Validate if the collection belongs to the store
       const collection = await knex('collections')
           .where({ collectionId, storeId })

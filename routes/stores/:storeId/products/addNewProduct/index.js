@@ -1,20 +1,12 @@
 'use strict'
 const { v4: uuidv4 } = require("uuid");
 const knex = require("@database/knexInstance");
-const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
   fastify.post('/', async (request, reply) => {
     const { storeId } = request.params;
 
     try {
-      // Validate the merchant's access to the store
-      const merchantId = request.user.merchantId; // Assumes user data is attached to the request
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
-
       const newProduct = request.body
       const collectionIds = newProduct.collections;
       const variantInfo = newProduct.variantInfo || undefined;

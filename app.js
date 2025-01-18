@@ -33,7 +33,6 @@ module.exports = async function (fastify, opts) {
     // }
   });
 
-
   // Do not touch the following lines
 
   // This loads all plugins defined in plugins

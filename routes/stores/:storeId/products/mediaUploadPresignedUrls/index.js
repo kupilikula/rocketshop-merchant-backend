@@ -3,7 +3,6 @@ require('dotenv').config();
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 // Configure AWS SDK v3 S3 Client
 const s3Client = new S3Client({
@@ -25,12 +24,6 @@ module.exports = async function (fastify, opts) {
     }
 
     try {
-      // Validate the merchant's access to the store
-      const merchantId = request.user.merchantId; // Assumes user data is attached to the request
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
 
       // Generate presigned URLs for all fileKeys
       const presignedUrls = await Promise.all(

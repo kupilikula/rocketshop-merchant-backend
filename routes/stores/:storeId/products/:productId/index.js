@@ -1,20 +1,12 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
-const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
     const { storeId, productId } = request.params;
 
     try {
-      // Validate the merchant's access to the store (optional, based on your auth system)
-      const merchantId = request.user.merchantId; // Assumes user data is attached to the request
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
-
       // Fetch the specific product
       const product = await knex('products')
           .where({ storeId, productId })
@@ -68,13 +60,6 @@ module.exports = async function (fastify, opts) {
     const updates = request.body; // JSON body containing fields to update
 
     try {
-      // Validate the merchant's access to the store
-      const merchantId = request.user.merchantId;
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
-
       // Update the product
       const result = await knex('products')
           .where({ storeId, productId })

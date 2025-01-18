@@ -1,7 +1,6 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
-const validateMerchantAccessToStore = require("../../../../../utils/validateMerchantAccessToStore");
 
 module.exports = async function (fastify, opts) {
   fastify.post('/api/merchants/stores/:storeId/offers', async (request, reply) => {
@@ -20,13 +19,6 @@ module.exports = async function (fastify, opts) {
     } = request.body;
 
     try {
-      // Validate the merchant's access to the store
-      const merchantId = request.user.merchantId;
-      const hasAccess = await validateMerchantAccessToStore(merchantId, storeId);
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-      }
-
       // Input validation
       if (!offerName || !offerType || !validityDateRange || !discountDetails) {
         return reply.status(400).send({ error: 'Missing required offer fields.' });
