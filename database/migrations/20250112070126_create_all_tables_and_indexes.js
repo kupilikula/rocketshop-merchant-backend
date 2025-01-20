@@ -127,6 +127,7 @@ exports.up = async function (knex) {
         table.uuid("recipientId").primary();
         table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
         table.string("fullName").notNullable();
+        table.string("phone").notNullable();
         table.uuid("addressId").notNullable().references("addressId").inTable("deliveryAddresses").onDelete("CASCADE");
         table.boolean("isDefaultRecipient").defaultTo(false); // Indicate if this is the default recipient
         table.timestamps(true, true);
