@@ -102,7 +102,30 @@ exports.up = async function (knex) {
         table.string("fullName").notNullable();
         table.string("email").nullable();
         table.string("phone").nullable();
-        table.string("customerAddress").nullable();
+        table.uuid("defaultAddressId").nullable().references("addressId").inTable("deliveryAddresses").onDelete("SET NULL");
+        table.timestamps(true, true);
+    });
+
+    // Create deliveryAddresses table
+    await knex.schema.createTable("deliveryAddresses", function (table) {
+        table.uuid("addressId").primary();
+        table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
+        table.string("street1").notNullable();
+        table.string("street2").nullable();
+        table.string("city").notNullable();
+        table.string("state").notNullable();
+        table.string("country").notNullable();
+        table.string("postalCode").notNullable();
+        table.timestamps(true, true);
+    });
+
+    // Create recipients table
+    await knex.schema.createTable("recipients", function (table) {
+        table.uuid("recipientId").primary();
+        table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
+        table.string("fullName").notNullable();
+        table.uuid("addressId").notNullable().references("addressId").inTable("deliveryAddresses").onDelete("CASCADE");
+        table.boolean("isDefaultRecipient").defaultTo(false); // Indicate if this is the default recipient
         table.timestamps(true, true);
     });
 
@@ -203,6 +226,8 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("order_status_history");
     await knex.schema.dropTableIfExists("orders");
     await knex.schema.dropTableIfExists("customer_followed_stores");
+    await knex.schema.dropTableIfExists("recipients");
+    await knex.schema.dropTableIfExists("deliveryAddresses");
     await knex.schema.dropTableIfExists("customers");
     await knex.schema.dropTableIfExists("productVariants");
     await knex.schema.dropTableIfExists("variantGroups");

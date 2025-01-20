@@ -187,17 +187,106 @@ exports.seed = async function (knex) {
         const { created_at, updated_at } = generateTimestamps();
         return {
             customerId: faker.string.uuid(),
-            customerHandle: faker.internet.username(), // Random store handle
+            customerHandle: faker.internet.username(), // Random customer handle
             fullName: faker.person.fullName(),
             email: faker.internet.email(),
             phone: faker.phone.number(),
-            customerAddress: faker.location.streetAddress(),
+            defaultAddressId: null, // Placeholder, to be updated after addresses are created
             created_at,
             updated_at,
         };
     });
     await knex('customers').insert(customers);
     console.log('Customers seeded.');
+
+
+// Seed deliveryAddresses
+    console.log('Seeding delivery addresses...');
+    const deliveryAddresses = [];
+    const recipientAddressesMap = {}; // To map customerId to address IDs for recipients
+
+    for (const customer of customers) {
+        const numAddresses = faker.number.int({ min: 1, max: 5 });
+        const customerAddresses = Array.from({ length: numAddresses }, () => {
+            const { created_at, updated_at } = generateTimestamps();
+            const addressId = faker.string.uuid();
+            return {
+                addressId,
+                customerId: customer.customerId,
+                street1: faker.location.streetAddress(),
+                street2: faker.datatype.boolean() ? faker.location.secondaryAddress() : null,
+                city: faker.location.city(),
+                state: faker.location.state(),
+                country: faker.location.country(),
+                postalCode: faker.location.zipCode(),
+                created_at,
+                updated_at,
+            };
+        });
+
+        deliveryAddresses.push(...customerAddresses);
+
+        // Map customerId to the address IDs for assigning recipients
+        recipientAddressesMap[customer.customerId] = customerAddresses.map(a => a.addressId);
+
+        // Assign the first address as the default address for the customer
+        customer.defaultAddressId = customerAddresses[0].addressId;
+    }
+
+// Insert delivery addresses
+    await knex('deliveryAddresses').insert(deliveryAddresses);
+    console.log('Delivery addresses seeded.');
+
+// Update customers with their defaultAddressId
+    await Promise.all(
+        customers.map(customer =>
+            knex('customers')
+                .where({ customerId: customer.customerId })
+                .update({ defaultAddressId: customer.defaultAddressId })
+        )
+    );
+    console.log('Default addresses assigned to customers.');
+
+// Seed recipients
+    console.log('Seeding recipients...');
+    const recipients = [];
+
+    for (const customer of customers) {
+        // Default recipient is the customer
+        const { created_at, updated_at } = generateTimestamps();
+        recipients.push({
+            recipientId: faker.string.uuid(),
+            customerId: customer.customerId,
+            fullName: customer.fullName,
+            phone: customer.phone,
+            addressId: customer.defaultAddressId,
+            isDefaultRecipient: true,
+            created_at,
+            updated_at,
+        });
+
+        // Add additional recipients
+        const numRecipients = faker.number.int({ min: 0, max: 3 });
+        const customerAddresses = recipientAddressesMap[customer.customerId];
+
+        for (let i = 0; i < numRecipients; i++) {
+            const randomAddressId = faker.helpers.arrayElement(customerAddresses);
+            recipients.push({
+                recipientId: faker.string.uuid(),
+                customerId: customer.customerId,
+                fullName: faker.person.fullName(),
+                phone: faker.phone.number(),
+                addressId: randomAddressId,
+                isDefaultRecipient: false,
+                created_at: faker.date.past(),
+                updated_at: faker.date.recent(),
+            });
+        }
+    }
+
+// Insert recipients
+    await knex('recipients').insert(recipients);
+    console.log('Recipients seeded.');
 
     // Seed customer_followed_stores and update followerCount
     console.log('Seeding customer_followed_stores and updating followerCount...');
