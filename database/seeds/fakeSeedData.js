@@ -182,7 +182,7 @@ exports.seed = async function (knex) {
     await knex('productCollections').insert(productCollections);
     console.log('ProductCollections seeded.');
 
-    console.log('Seeding customers...');
+    console.log("Seeding customers...");
     const customers = Array.from({ length: 20 }, () => {
         const { created_at, updated_at } = generateTimestamps();
         return {
@@ -191,27 +191,24 @@ exports.seed = async function (knex) {
             fullName: faker.person.fullName(),
             email: faker.internet.email(),
             phone: faker.phone.number(),
-            defaultAddressId: null, // Placeholder, to be updated after addresses are created
             created_at,
             updated_at,
         };
     });
-    await knex('customers').insert(customers);
-    console.log('Customers seeded.');
-
+    await knex("customers").insert(customers);
+    console.log("Customers seeded.");
 
 // Seed deliveryAddresses
-    console.log('Seeding delivery addresses...');
+    console.log("Seeding delivery addresses...");
     const deliveryAddresses = [];
     const recipientAddressesMap = {}; // To map customerId to address IDs for recipients
 
     for (const customer of customers) {
         const numAddresses = faker.number.int({ min: 1, max: 5 });
-        const customerAddresses = Array.from({ length: numAddresses }, () => {
+        const customerAddresses = Array.from({ length: numAddresses }, (value, index) => {
             const { created_at, updated_at } = generateTimestamps();
-            const addressId = faker.string.uuid();
             return {
-                addressId,
+                addressId: faker.string.uuid(),
                 customerId: customer.customerId,
                 street1: faker.location.streetAddress(),
                 street2: faker.datatype.boolean() ? faker.location.secondaryAddress() : null,
@@ -219,6 +216,7 @@ exports.seed = async function (knex) {
                 state: faker.location.state(),
                 country: faker.location.country(),
                 postalCode: faker.location.zipCode(),
+                isDefault: index === 0, // The first address is marked as default
                 created_at,
                 updated_at,
             };
@@ -227,28 +225,15 @@ exports.seed = async function (knex) {
         deliveryAddresses.push(...customerAddresses);
 
         // Map customerId to the address IDs for assigning recipients
-        recipientAddressesMap[customer.customerId] = customerAddresses.map(a => a.addressId);
-
-        // Assign the first address as the default address for the customer
-        customer.defaultAddressId = customerAddresses[0].addressId;
+        recipientAddressesMap[customer.customerId] = customerAddresses.map((a) => a.addressId);
     }
 
 // Insert delivery addresses
-    await knex('deliveryAddresses').insert(deliveryAddresses);
-    console.log('Delivery addresses seeded.');
-
-// Update customers with their defaultAddressId
-    await Promise.all(
-        customers.map(customer =>
-            knex('customers')
-                .where({ customerId: customer.customerId })
-                .update({ defaultAddressId: customer.defaultAddressId })
-        )
-    );
-    console.log('Default addresses assigned to customers.');
+    await knex("deliveryAddresses").insert(deliveryAddresses);
+    console.log("Delivery addresses seeded.");
 
 // Seed recipients
-    console.log('Seeding recipients...');
+    console.log("Seeding recipients...");
     const recipients = [];
 
     for (const customer of customers) {
@@ -259,7 +244,9 @@ exports.seed = async function (knex) {
             customerId: customer.customerId,
             fullName: customer.fullName,
             phone: customer.phone,
-            addressId: customer.defaultAddressId,
+            addressId: deliveryAddresses.find(
+                (addr) => addr.customerId === customer.customerId && addr.isDefault
+            ).addressId,
             isDefaultRecipient: true,
             created_at,
             updated_at,
@@ -285,8 +272,8 @@ exports.seed = async function (knex) {
     }
 
 // Insert recipients
-    await knex('recipients').insert(recipients);
-    console.log('Recipients seeded.');
+    await knex("recipients").insert(recipients);
+    console.log("Recipients seeded.");
 
     // Seed customer_followed_stores and update followerCount
     console.log('Seeding customer_followed_stores and updating followerCount...');

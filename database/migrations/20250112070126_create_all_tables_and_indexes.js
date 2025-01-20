@@ -95,7 +95,7 @@ exports.up = async function (knex) {
         table.unique(["productId", "variantGroupId"]);
     });
 
-    // Step 1: Create `customers` table without the `defaultAddressId` column
+    // Create `customers` table
     await knex.schema.createTable("customers", function (table) {
         table.uuid("customerId").primary();
         table.string("customerHandle").unique().notNullable();
@@ -105,7 +105,7 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
-    // Step 2: Create `deliveryAddresses` table
+    // Create `deliveryAddresses` table
     await knex.schema.createTable("deliveryAddresses", function (table) {
         table.uuid("addressId").primary();
         table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
@@ -115,12 +115,8 @@ exports.up = async function (knex) {
         table.string("state").notNullable();
         table.string("country").notNullable();
         table.string("postalCode").notNullable();
+        table.boolean("isDefault").defaultTo(false); // Indicate default address
         table.timestamps(true, true);
-    });
-
-    // Step 3: Add `defaultAddressId` column to `customers` table
-    await knex.schema.alterTable("customers", function (table) {
-        table.uuid("defaultAddressId").nullable().references("addressId").inTable("deliveryAddresses").onDelete("SET NULL");
     });
     // Create recipients table
     await knex.schema.createTable("recipients", function (table) {
