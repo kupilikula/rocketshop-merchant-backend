@@ -115,7 +115,6 @@ exports.up = async function (knex) {
         table.string("state").notNullable();
         table.string("country").notNullable();
         table.string("postalCode").notNullable();
-        table.boolean("isDefault").defaultTo(false); // Indicate default address
         table.timestamps(true, true);
     });
     // Create recipients table
@@ -124,8 +123,15 @@ exports.up = async function (knex) {
         table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
         table.string("fullName").notNullable();
         table.string("phone").notNullable();
+        table.boolean("isDefaultRecipient").defaultTo(false); // Default recipient for the customer
+        table.timestamps(true, true);
+    });
+
+    await knex.schema.createTable("recipientAddresses", function (table) {
+        table.uuid("recipientAddressId").primary();
+        table.uuid("recipientId").notNullable().references("recipientId").inTable("recipients").onDelete("CASCADE");
         table.uuid("addressId").notNullable().references("addressId").inTable("deliveryAddresses").onDelete("CASCADE");
-        table.boolean("isDefaultRecipient").defaultTo(false); // Indicate if this is the default recipient
+        table.boolean("isDefault").defaultTo(false); // Default address for the recipient
         table.timestamps(true, true);
     });
 
