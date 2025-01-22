@@ -16,7 +16,6 @@ module.exports = async function (fastify, opts) {
               'customers.fullName',
               'customers.phone',
               'customers.email',
-              'customers.customerAddress'
           )
           .where({ 'orders.storeId': storeId })
           .join('customers', 'orders.customerId', 'customers.customerId');
@@ -70,7 +69,6 @@ module.exports = async function (fastify, opts) {
           fullName: order.fullName,
           phone: order.phone,
           email: order.email,
-          customerAddress: order.customerAddress,
         },
         orderItems: orderItemsGrouped[order.orderId] || [],
       }));
@@ -81,7 +79,6 @@ module.exports = async function (fastify, opts) {
         delete order.fullName;
         delete order.phone;
         delete order.email;
-        delete order.customerAddress;
       });
 
       return reply.send(formattedOrders);
