@@ -360,6 +360,15 @@ exports.seed = async function (knex) {
         const orderId = faker.string.uuid();
         const store = faker.helpers.arrayElement(stores);
         const customer = faker.helpers.arrayElement(customers);
+
+        // Select a random recipient and their default delivery address for this customer
+        const customerRecipients = recipients.filter((r) => r.customerId === customer.customerId);
+        const recipient = faker.helpers.arrayElement(customerRecipients);
+        const recipientDefaultAddress = recipientAddresses.find(
+            (ra) => ra.recipientId === recipient.recipientId && ra.isDefault
+        );
+
+
         const orderItems = faker.helpers.multiple(
             () => {
                 const product = faker.helpers.arrayElement(products.filter(p => p.storeId === store.storeId));
@@ -380,6 +389,20 @@ exports.seed = async function (knex) {
             orderId,
             storeId: store.storeId,
             customerId: customer.customerId,
+            recipient: JSON.stringify({
+                recipientId: recipient.recipientId,
+                fullName: recipient.fullName,
+                phone: recipient.phone,
+                isDefaultRecipient: recipient.isDefaultRecipient
+            }),
+            deliveryAddress: JSON.stringify({
+                street1: recipientDefaultAddress?.street1,
+                street2: recipientDefaultAddress?.street2,
+                city: recipientDefaultAddress?.city,
+                state: recipientDefaultAddress?.state,
+                country: recipientDefaultAddress?.country,
+                postalCode: recipientDefaultAddress?.postalCode,
+            }),
             orderStatus,
             orderDate: faker.date.past(),
             orderTotal: orderItems.reduce(
@@ -389,6 +412,7 @@ exports.seed = async function (knex) {
             created_at: orderStatusUpdateTime,
             updated_at: orderStatusUpdateTime,
         });
+
 
         orderItems.forEach((item, item_i) => {
             orderItemsData.push({

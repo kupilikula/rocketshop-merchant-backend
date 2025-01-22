@@ -148,8 +148,10 @@ exports.up = async function (knex) {
         table.uuid("orderId").primary();
         table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
         table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
-        table.enum("orderStatus", orderStatusList).defaultTo("Order Received");
+        table.enum("orderStatus", orderStatusList).defaultTo("Order Created");
         table.timestamp("orderStatusUpdateTime").defaultTo(knex.fn.now());
+        table.jsonb("recipient").defaultTo("{}");
+        table.jsonb("deliveryAddress").defaultTo("{}");
         table.decimal("orderTotal", 10, 2).notNullable();
         table.timestamp("orderDate").defaultTo(knex.fn.now());
         table.timestamps(true, true);
