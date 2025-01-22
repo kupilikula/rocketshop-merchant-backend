@@ -416,7 +416,6 @@ exports.seed = async function (knex) {
 
         orderItems.forEach((item, item_i) => {
             orderItemsData.push({
-                id: (i)*50 + item_i,
                 orderId,
                 productId: item.productId,
                 quantity: item.quantity,
