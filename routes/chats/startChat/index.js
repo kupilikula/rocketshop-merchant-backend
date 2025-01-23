@@ -1,4 +1,5 @@
 const knex = require('@database/knexInstance');
+const { v4: uuidv4 } = require("uuid");
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
@@ -17,10 +18,12 @@ module.exports = async function (fastify, opts) {
                 .where({ customerId, storeId })
                 .first();
 
+            const chatId = uuidv4();
             // If no chat exists, create a new one
             if (!chat) {
                 const [newChat] = await knex('chats')
                     .insert({
+                        chatId,
                         customerId,
                         storeId,
                         created_at: new Date(),
