@@ -5,7 +5,7 @@ module.exports = async function (fastify, opts) {
         try {
             const { customerId, merchantId } = request.user; // Extract customerId or merchantId from authenticated user
             const { storeId } = request.query; // Extract storeId from query params
-
+            console.log('line8, customerId:', customerId, ' , merchantId:', merchantId, ' , storeId:', storeId);
             // Handle request for customers
             if (customerId) {
                 const chats = await knex('chats')
