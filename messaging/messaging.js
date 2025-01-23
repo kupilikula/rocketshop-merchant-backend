@@ -29,6 +29,8 @@ function initMessaging(io, app) {
             const { chatId, senderId, senderType, message } = messageData;
 
             try {
+                app.log.info(`Sender socket ID: ${socket.id} sent a message`);
+
                 // Save the message to the database
                 const newMessage = await saveMessageToDatabase(chatId, senderId, senderType, message);
                 // Log all clients in the room
