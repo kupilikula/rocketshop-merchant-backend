@@ -1,5 +1,5 @@
 const knex = require("@database/knexInstance");
-
+const { v4: uuidv4 } = require("uuid");
 // Active connections map (if needed)
 const activeUsers = new Map();
 
@@ -57,8 +57,10 @@ function initMessaging(io, app) {
  * Helper function to save a message to the database
  */
 async function saveMessageToDatabase(chatId, senderId, senderType, messageContent) {
+    const messageId = uuidv4();
     const [newMessage] = await knex('messages')
         .insert({
+            messageId,
             chatId,
             senderId,
             senderType,
