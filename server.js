@@ -10,10 +10,22 @@ const Fastify = require('fastify')
 // Require library to exit fastify process, gracefully (if possible)
 const closeWithGrace = require('close-with-grace')
 
+// Additional imports for WebSocket support
+const http = require('http')
+
+// Import messaging module
+const initMessaging = require('./messaging/messaging') // Adjust path as needed
+
 // Instantiate Fastify with some config
 const app = Fastify({
     logger: true
 })
+
+// Create HTTP server and integrate Fastify
+const server = http.createServer(app.server)
+
+// Initialize WebSocket messaging
+initMessaging(server, app)
 
 // Register your application as a normal plugin.
 const appService = require('./app.js')

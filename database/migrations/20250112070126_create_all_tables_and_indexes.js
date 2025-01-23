@@ -30,6 +30,7 @@ exports.up = async function (knex) {
         table.uuid('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
         table.enum('role', ['Admin', 'Manager', 'Staff']).notNullable();
+        table.boolean('canReceiveMessages').defaultTo(true);
         table.timestamps(true, true);
     });
 
@@ -197,6 +198,32 @@ exports.up = async function (knex) {
         table.timestamp('saved_at').defaultTo(knex.fn.now());
 
         table.unique(['customerId', 'productId']); // Prevent duplicate saved items
+    });
+
+    await knex.schema.createTable('chats', (table) => {
+        table.uuid('chatId').primary();
+        table.uuid('customerId').references('customerId').inTable('customers').onDelete('CASCADE');
+        table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
+        table.boolean('isActive').defaultTo(true); // For soft-deleting or archiving chats
+        table.timestamps(true, true);
+    });
+
+    await knex.schema.createTable('messages', (table) => {
+        table.uuid('messageId').primary();
+        table.uuid('chatId').references('chatId').inTable('chats').onDelete('CASCADE');
+        table.uuid('senderId').notNullable(); // Can be a `customerId` or `merchantId`
+        table.enum('senderType', ['Customer', 'Merchant']).notNullable(); // Distinguish sender type
+        table.text('message').notNullable(); // The message content
+        table.timestamp('readAt').nullable(); // When the message was read
+        table.timestamps(true, true);
+    });
+
+    await knex.schema.alterTable('chats', (table) => {
+        table.index(['customerId', 'storeId']);
+    });
+
+    await knex.schema.alterTable('messages', (table) => {
+        table.index(['chatId', 'senderId', 'senderType']);
     });
 
     // Add full-text and GIN indexes for `products`
