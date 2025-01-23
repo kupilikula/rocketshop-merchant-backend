@@ -31,6 +31,9 @@ function initMessaging(io, app) {
             try {
                 // Save the message to the database
                 const newMessage = await saveMessageToDatabase(chatId, senderId, senderType, message);
+                // Log all clients in the room
+                const clients = io.sockets.adapter.rooms.get(chatId);
+                app.log.info(`Clients in room ${chatId}: ${clients ? [...clients] : 'No clients'}`);
 
                 // Broadcast the message to all clients in the room except the sender
                 socket.broadcast.to(chatId).emit('receiveMessage', newMessage);
