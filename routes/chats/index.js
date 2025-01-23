@@ -16,7 +16,7 @@ module.exports = async function (fastify, opts) {
                         'chats.updated_at as lastMessageTime',
                         knex('messages')
                             .select('message')
-                            .whereRaw('messages.chatId = chats.chatId')
+                            .whereRaw('messages."chatId" = chats."chatId"')
                             .orderBy('messages.created_at', 'desc')
                             .limit(1)
                             .as('lastMessage')
@@ -54,7 +54,7 @@ module.exports = async function (fastify, opts) {
                         'chats.updated_at as lastMessageTime',
                         knex('messages')
                             .select('message')
-                            .whereRaw('messages.chatId = chats.chatId')
+                            .whereRaw('messages."chatId" = chats."chatId"')
                             .orderBy('messages.created_at', 'desc')
                             .limit(1)
                             .as('lastMessage')

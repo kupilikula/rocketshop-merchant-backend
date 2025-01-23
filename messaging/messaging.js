@@ -1,13 +1,12 @@
 const { Server } = require('socket.io')
 const knex = require("@database/knexInstance");
 
-
 // Active connections map (if needed)
 const activeUsers = new Map()
 
 /**
  * Initialize Socket.IO for real-time messaging
- * @param {object} server - The HTTP server
+ * @param {object} server - The HTTP server (Fastify's internal server)
  * @param {object} app - The Fastify app instance (for logging or shared context)
  */
 function initMessaging(server, app) {
@@ -46,9 +45,10 @@ function initMessaging(server, app) {
             }
         })
 
+        // Typing indicator
         socket.on('typing', ({ chatId, userId }) => {
             socket.to(chatId).emit('typing', { chatId, userId });
-        });
+        })
 
         // Handle disconnections
         socket.on('disconnect', () => {
@@ -65,7 +65,6 @@ function initMessaging(server, app) {
  * Helper function to save a message to the database
  */
 async function saveMessageToDatabase(chatId, senderId, senderType, messageContent) {
-
     const [newMessage] = await knex('messages')
         .insert({
             chatId,

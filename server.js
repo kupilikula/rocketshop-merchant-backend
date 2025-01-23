@@ -10,9 +10,6 @@ const Fastify = require('fastify')
 // Require library to exit fastify process, gracefully (if possible)
 const closeWithGrace = require('close-with-grace')
 
-// Additional imports for WebSocket support
-const http = require('http')
-
 // Import messaging module
 const initMessaging = require('./messaging/messaging') // Adjust path as needed
 
@@ -21,15 +18,15 @@ const app = Fastify({
     logger: true
 })
 
-// Create HTTP server and integrate Fastify
-const server = http.createServer(app.server)
-
-// Initialize WebSocket messaging
-initMessaging(server, app)
-
 // Register your application as a normal plugin.
 const appService = require('./app.js')
 app.register(appService)
+
+// Create HTTP server using Fastify's internal server
+const server = app.server
+
+// Initialize WebSocket messaging
+initMessaging(server, app)
 
 // delay is the number of milliseconds for the graceful close to finish
 closeWithGrace({ delay: process.env.FASTIFY_CLOSE_GRACE_DELAY || 500 }, async function ({ signal, err, manual }) {
