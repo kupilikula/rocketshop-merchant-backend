@@ -1,7 +1,7 @@
 const knex = require('@database/knexInstance'); // Adjust the path to your DB instance
 
 module.exports = async function (fastify, opts) {
-    fastify.get('/', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+    fastify.get('/', async (request, reply) => {
         try {
             const { customerId, merchantId } = request.user; // Extract customerId or merchantId from authenticated user
             const { storeId } = request.query; // Extract storeId from query params
