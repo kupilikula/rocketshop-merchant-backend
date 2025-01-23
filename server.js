@@ -24,6 +24,8 @@ app.register(require('fastify-socket.io'), {
         origin: '*', // Replace with your frontend origin
         methods: ['GET', 'POST'],
     },
+    allowEIO3: true, // Allow compatibility with older clients
+    transports: ['websocket'], // Disable polling
 });
 
 // Initialize WebSocket messaging after the plugin is ready
