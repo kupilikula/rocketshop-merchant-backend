@@ -15,8 +15,12 @@ function initMessaging(io, app) {
 
         // Join a chat room
         socket.on('joinChat', ({ chatId, userId, userType }) => {
-            activeUsers.set(socket.id, { chatId, userId, userType });
-            socket.join(chatId);
+            if (!chatId || !userId || !userType) {
+                app.log.error(`Missing parameters in joinChat: chatId=${chatId}, userId=${userId}, userType=${userType}`);
+                return;
+            }
+
+            socket.join(chatId); // Join the room for this chatId
             app.log.info(`User ${userId} (${userType}) joined chat ${chatId}`);
         });
 
@@ -28,8 +32,10 @@ function initMessaging(io, app) {
                 // Save the message to the database
                 const newMessage = await saveMessageToDatabase(chatId, senderId, senderType, message);
 
-                // Broadcast the message to the chat room
-                io.to(chatId).emit('receiveMessage', newMessage);
+                // Broadcast the message to all clients in the room except the sender
+                socket.broadcast.to(chatId).emit('receiveMessage', newMessage);
+
+                // Optionally log the message sent
                 app.log.info(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
             } catch (error) {
                 app.log.error(`Error saving message: ${error.message}`);
