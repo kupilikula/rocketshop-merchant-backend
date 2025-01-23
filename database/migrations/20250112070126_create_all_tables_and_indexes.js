@@ -214,7 +214,7 @@ exports.up = async function (knex) {
         table.uuid('senderId').notNullable(); // Can be a `customerId` or `merchantId`
         table.enum('senderType', ['Customer', 'Merchant']).notNullable(); // Distinguish sender type
         table.text('message').notNullable(); // The message content
-        table.timestamp('readAt').nullable(); // When the message was read
+        table.timestamp('read_at').nullable(); // When the message was read
         table.timestamps(true, true);
     });
 
