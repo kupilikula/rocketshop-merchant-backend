@@ -21,7 +21,11 @@ function initMessaging(io, app) {
             }
 
             socket.join(chatId); // Join the room for this chatId
-            app.log.info(`User ${userId} (${userType}) joined chat ${chatId}`);
+            app.log.info(`User ${userId} (${userType}) joined chat ${chatId} with socket ID: ${socket.id}`);
+
+            // Log current clients in the room
+            const clients = io.sockets.adapter.rooms.get(chatId) || new Set();
+            app.log.info(`Current clients in room ${chatId}: ${[...clients]}`);
         });
 
         // Handle sending messages
