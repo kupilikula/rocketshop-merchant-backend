@@ -38,7 +38,7 @@ function initMessaging(io, app) {
                 app.log.info(`Clients in room ${chatId}: ${clients ? [...clients] : 'No clients'}`);
 
                 // Broadcast the message to all clients in the room except the sender
-                socket.broadcast.to(chatId).emit('receiveMessage', newMessage);
+                io.to(chatId).except(socket.id).emit('receiveMessage', newMessage);
 
                 // Optionally log the message sent
                 app.log.info(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
