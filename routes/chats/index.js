@@ -12,7 +12,8 @@ module.exports = async function (fastify, opts) {
                     .select(
                         'chats.chatId',
                         'chats.storeId',
-                        'stores.storeName as recipientName',
+                        'stores.storeName',
+                        'stores.storeLogoImage',
                         'chats.updated_at as lastMessageTime',
                         knex('messages')
                             .select('message')
@@ -49,7 +50,7 @@ module.exports = async function (fastify, opts) {
                     .select(
                         'chats.chatId',
                         'chats.customerId',
-                        'customers.fullName as recipientName',
+                        'customers.fullName as customerName',
                         'customers.customerHandle',
                         'chats.updated_at as lastMessageTime',
                         knex('messages')
