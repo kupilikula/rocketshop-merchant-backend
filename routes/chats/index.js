@@ -51,7 +51,7 @@ module.exports = async function (fastify, opts) {
                         'chats.chatId',
                         'chats.customerId',
                         'customers.fullName as customerName',
-                        'customers.phone',
+                        'customers.phone as customerPhone',
                         'customers.customerHandle',
                         'chats.updated_at as lastMessageTime',
                         knex('messages')
