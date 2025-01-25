@@ -55,17 +55,17 @@ function initMessaging(io, app) {
         socket.on('messageRead', ({ chatId, messageId, readerId }) => {
             console.log('messageRead, messageId:', messageId, ' , readerID:', readerId);
             // Notify the sender
-            socket.to(chatId).emit('messageRead', { messageId, readerId });
+            io.to(chatId).except(socket.id).emit('messageRead', { messageId, readerId });
         });
 
         socket.on('typing', ({ chatId, senderId }) => {
             console.log('typing, senderId:', senderId);
-            socket.to(chatId).emit('typing', { senderId });
+            io.to(chatId).except(socket.id).emit('typing', { senderId });
         });
 
         socket.on('stopTyping', ({ chatId, senderId }) => {
             console.log('stop typing, senderId:', senderId);
-            socket.to(chatId).emit('stopTyping', { senderId });
+            io.to(chatId).except(socket.id).emit('stopTyping', { senderId });
         });
 
         // Handle disconnections
