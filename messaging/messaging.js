@@ -31,7 +31,7 @@ function initMessaging(io, app) {
         // Handle sending messages
         socket.on('sendMessage', async (messageData) => {
             const { chatId, senderId, senderType, message } = messageData;
-
+            console.log('sendMessage:', messageData);
             try {
                 app.log.info(`Sender socket ID: ${socket.id} sent a message`);
 
@@ -53,15 +53,18 @@ function initMessaging(io, app) {
         });
 
         socket.on('messageRead', ({ chatId, messageId, readerId }) => {
+            console.log('messageRead, messageId:', messageId, ' , readerID:', readerId);
             // Notify the sender
             socket.to(chatId).emit('messageRead', { messageId, readerId });
         });
 
         socket.on('typing', ({ chatId, senderId }) => {
+            console.log('typing, senderId:', senderId);
             socket.to(chatId).emit('typing', { senderId });
         });
 
         socket.on('stopTyping', ({ chatId, senderId }) => {
+            console.log('stop typing, senderId:', senderId);
             socket.to(chatId).emit('stopTyping', { senderId });
         });
 
