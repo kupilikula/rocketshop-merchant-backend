@@ -52,9 +52,17 @@ function initMessaging(io, app) {
             }
         });
 
-        // Typing indicator
-        socket.on('typing', ({ chatId, userId }) => {
-            socket.to(chatId).emit('typing', { chatId, userId });
+        socket.on('messageRead', ({ chatId, messageId, readerId }) => {
+            // Notify the sender
+            socket.to(chatId).emit('messageRead', { messageId, readerId });
+        });
+
+        socket.on('typing', ({ chatId, senderId }) => {
+            socket.to(chatId).emit('typing', { senderId });
+        });
+
+        socket.on('stopTyping', ({ chatId, senderId }) => {
+            socket.to(chatId).emit('stopTyping', { senderId });
         });
 
         // Handle disconnections
