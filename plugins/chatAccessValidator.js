@@ -42,4 +42,4 @@ async function chatAccessValidator(fastify, options) {
     });
 }
 
-module.exports = fp(merchantAccessValidator);
+module.exports = fp(chatAccessValidator);
