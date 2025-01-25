@@ -26,6 +26,8 @@ app.register(require('fastify-socket.io'), {
     },
     allowEIO3: true, // Allow compatibility with older clients
     transports: ['websocket'], // Disable polling
+    pingTimeout: 60000, // Close the connection if no pong received in 20 seconds
+    pingInterval: 10000, // Send a ping every 10 seconds
 });
 
 // Initialize WebSocket messaging after the plugin is ready
