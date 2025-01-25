@@ -30,13 +30,13 @@ function initMessaging(io, app) {
 
         // Handle sending messages
         socket.on('sendMessage', async (messageData) => {
-            const { chatId, senderId, senderType, message } = messageData;
+            const { chatId, messageId, senderId, senderType, message } = messageData;
             console.log('sendMessage:', messageData);
             try {
                 app.log.info(`Sender socket ID: ${socket.id} sent a message`);
 
                 // Save the message to the database
-                const newMessage = await saveMessageToDatabase(chatId, senderId, senderType, message);
+                const newMessage = await saveMessageToDatabase(chatId, messageId, senderId, senderType, message);
                 // Log all clients in the room
                 const clients = io.sockets.adapter.rooms.get(chatId);
                 app.log.info(`Clients in room ${chatId}: ${clients ? [...clients] : 'No clients'}`);
@@ -82,8 +82,7 @@ function initMessaging(io, app) {
 /**
  * Helper function to save a message to the database
  */
-async function saveMessageToDatabase(chatId, senderId, senderType, messageContent) {
-    const messageId = uuidv4();
+async function saveMessageToDatabase(chatId, messageId, senderId, senderType, messageContent) {
     const [newMessage] = await knex('messages')
         .insert({
             messageId,
