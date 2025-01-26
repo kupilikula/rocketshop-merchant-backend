@@ -2,6 +2,8 @@
 
 const knex = require("@database/knexInstance");
 const {generateJWT} = require("../../utils/jwt");
+const {generateAccessToken, generateRefreshToken, storeRefreshToken} = require("../../services/TokenService");
+const {decode} = require("jsonwebtoken");
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
@@ -36,13 +38,24 @@ module.exports = async function (fastify, opts) {
         // Create payload (e.g., customerId or merchantId)
         const payload = { merchantId: merchantId };
 
-        // Generate JWT
-        const token = generateJWT(payload);
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken({ userId: merchantId });
+        // Decode new refresh token to get expiresAt
+        const decodedRefreshToken = decode(refreshToken);
+        const expiresAt = new Date(decodedRefreshToken.exp * 1000); // Convert `exp` to milliseconds
 
+        // Store refresh token in database (or in-memory store)
+        await storeRefreshToken(merchantId, refreshToken, expiresAt); // Example: Save to DB
 
+        // Return tokens (access token in response, refresh token in HTTP-only cookie)
+        reply.status(200)
+            .setCookie('refreshToken', refreshToken, {
+                httpOnly: true, // Prevent client-side access
+                secure: true, // Use HTTPS in production
+                path: '/refreshToken', // Restrict usage
+                sameSite: 'Strict', // Prevent CSRF attacks
+            })
+            .send({ accessToken, merchant, store });
 
-        let result = { token, merchant, store };
-
-        reply.status(200).send(result);
     });
 }
