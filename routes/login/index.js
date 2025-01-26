@@ -1,10 +1,20 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
+const {generateJWT} = require("../../utils/jwt");
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
-        let i = request.body.storeIndex || 0;
+        const { phone, otp, storeIndex } = request.body;
+
+        // Validate user credentials here (e.g., check in database)
+        const isValid = true; // Replace with actual validation logic
+
+        if (!isValid) {
+            return reply.status(401).send({ error: 'Invalid credentials' });
+        }
+
+        let i = storeIndex || 0;
         let row = await knex('merchantStores')
             .select('merchantId', 'storeId')
             .offset(i)
@@ -22,7 +32,16 @@ module.exports = async function (fastify, opts) {
             knex('merchants').where({ merchantId }).first(),
             knex('stores').where({ storeId }).first(),
         ]);
-        let result = { merchant, store };
+
+        // Create payload (e.g., customerId or merchantId)
+        const payload = { merchantId: merchantId };
+
+        // Generate JWT
+        const token = generateJWT(payload);
+
+
+
+        let result = { token, merchant, store };
 
         reply.status(200).send(result);
     });
