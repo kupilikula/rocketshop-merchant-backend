@@ -44,9 +44,10 @@ module.exports = async function (fastify, opts) {
   fastify.addHook('preHandler', async (request, reply) => {
     // List of public routes that don't require authentication
     const publicRoutes = ['/login'];
-  console.log('request.routerPath:', request.routerPath);
+    const routePath = request.raw.url.split('?')[0]; // Get the path without query parameters
+    console.log('routePath:', routePath);
     // Check if the current route is public
-    if (publicRoutes.includes(request.routerPath)) {
+    if (publicRoutes.includes(routePath)) {
       console.log('skipping auth for login');
       return; // Skip authentication for public routes
     }
