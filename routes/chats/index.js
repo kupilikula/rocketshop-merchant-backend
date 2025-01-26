@@ -3,31 +3,8 @@ const knex = require('@database/knexInstance'); // Adjust the path to your DB in
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
         try {
-            const { customerId, merchantId } = request.user; // Extract customerId or merchantId from authenticated user
+            const { merchantId } = request.user; // Extract customerId or merchantId from authenticated user
             const { storeId } = request.query; // Extract storeId from query params
-            console.log('line8, customerId:', customerId, ' , merchantId:', merchantId, ' , storeId:', storeId);
-            // Handle request for customers
-            if (customerId) {
-                const chats = await knex('chats')
-                    .select(
-                        'chats.chatId',
-                        'chats.storeId',
-                        'stores.storeName',
-                        'stores.storeLogoImage',
-                        'chats.updated_at as lastMessageTime',
-                        knex('messages')
-                            .select('message')
-                            .whereRaw('messages."chatId" = chats."chatId"')
-                            .orderBy('messages.created_at', 'desc')
-                            .limit(1)
-                            .as('lastMessage')
-                    )
-                    .join('stores', 'chats.storeId', 'stores.storeId')
-                    .where({ 'chats.customerId': customerId })
-                    .orderBy('chats.updated_at', 'desc');
-
-                return reply.send(chats);
-            }
 
             // Handle request for merchants
             if (merchantId) {
@@ -69,7 +46,7 @@ module.exports = async function (fastify, opts) {
             }
 
             // If neither customerId nor merchantId is provided
-            return reply.status(400).send({ error: 'Invalid request: No customerId or merchantId found.' });
+            return reply.status(400).send({ error: 'Invalid request: No merchantId found.' });
         } catch (error) {
             request.log.error(error);
             return reply.status(500).send({ error: 'Failed to fetch chats' });

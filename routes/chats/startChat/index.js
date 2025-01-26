@@ -4,13 +4,13 @@ const { v4: uuidv4 } = require("uuid");
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         try {
-            const { customerId } = request.user; // Extract customerId from the authenticated user
-            const { storeId } = request.body; // Extract storeId from the request body
+            const { merchantId } = request.user; // Extract customerId from the authenticated user
+            const { customerId, storeId } = request.body; // Extract storeId from the request body
 
             // Check if the store exists
-            const store = await knex('stores').where({ storeId }).first();
-            if (!store) {
-                return reply.status(404).send({ error: 'Store not found' });
+            const customer = await knex('customers').where({ customerId }).first();
+            if (!customer) {
+                return reply.status(404).send({ error: 'Customer not found' });
             }
 
             // Check if a chat already exists between the customer and the store
