@@ -218,6 +218,14 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('refresh_tokens', (table) => {
+        table.increments('id').primary(); // Auto-incrementing primary key
+        table.uuid('userId').notNullable(); // User ID associated with the token
+        table.text('tokenHash').notNullable(); // Hashed refresh token
+        table.timestamp('expires_at').notNullable(); // Expiration date of the token
+        table.timestamps(true, true); // created_at and updated_at
+    });
+
     await knex.schema.alterTable('chats', (table) => {
         table.index(['customerId', 'storeId']);
     });
@@ -255,6 +263,7 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
+    await knex.schema.dropTableIfExists('refresh_tokens');
     await knex.schema.dropTableIfExists('messages');
     await knex.schema.dropTableIfExists('chats');
     await knex.schema.dropTableIfExists('customer_saved_items');
