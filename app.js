@@ -3,7 +3,7 @@
 const path = require('node:path')
 const AutoLoad = require('@fastify/autoload')
 const cors = require('@fastify/cors')
-const {verifyJWT} = require("./utils/jwt");
+const {verifyAccessToken} = require("./services/TokenService");
 // Pass --options via CLI arguments in command to enable these options.
 const options = {}
 
@@ -19,35 +19,13 @@ module.exports = async function (fastify, opts) {
 
   fastify.decorateRequest('user', null); // Decorate the request with a user property
 
-  // fastify.addHook('onRequest', async (request, reply) => {
-  //   // const token = request.headers.authorization?.split(' ')[1]; // Extract token from Bearer header
-  //   // if (!token) {
-  //   //   return reply.status(401).send({ error: 'Unauthorized' });
-  //   // }
-  //
-  //   // try {
-  //     // const user = jwt.verify(token, JWT_SECRET); // Verify the token
-  //   console.log('authorization:', request.headers.authorization);
-  //   console.log('auth:', request.headers.authorization.split('='));
-  //   const auth = request.headers.authorization.split('=');
-  //   console.log('auth:', auth);
-  //   if (auth[0]==='merchantId') {
-  //     request.user = {merchantId: auth[1]}
-  //   } else if (auth[0]==='customerId') {
-  //     request.user = {customerId: auth[1]}
-  //   }
-  //   // } catch (err) {
-  //   //   return reply.status(401).send({ error: 'Invalid token' });
-  //   // }
-  // });
-
   fastify.addHook('onRequest', async (request, reply) => {
-    const publicRoutes = ['/login', '/refreshToken'];
+    const publicRoutes = ['/auth/login', '/auth/refreshToken', '/auth/logout'];
     const routePath = request.raw.url.split('?')[0]; // Get the path without query parameters
     console.log('routePath:', routePath);
     // Check if the current route is public
     if (publicRoutes.includes(routePath)) {
-      console.log('skipping auth for login');
+      console.log('skipping auth auth');
       return; // Skip authentication for public routes
     }
     const authHeader = request.headers.authorization;

@@ -1,8 +1,7 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
-const {generateJWT} = require("../../utils/jwt");
-const {generateAccessToken, generateRefreshToken, storeRefreshToken} = require("../../services/TokenService");
+const {generateAccessToken, generateRefreshToken, storeRefreshToken} = require("../../../services/TokenService");
 const {decode} = require("jsonwebtoken");
 
 module.exports = async function (fastify, opts) {
@@ -52,7 +51,7 @@ module.exports = async function (fastify, opts) {
             .setCookie('refreshToken', refreshToken, {
                 httpOnly: true, // Prevent client-side access
                 secure: true, // Use HTTPS in production
-                path: '/refreshToken', // Restrict usage
+                path: '/auth', // Restrict usage
                 sameSite: 'Strict', // Prevent CSRF attacks
             })
             .send({ accessToken, merchant, store });
