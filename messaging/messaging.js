@@ -23,6 +23,7 @@ function initMessaging(io, app) {
 
             // Verify the token
             const user = verifyAccessToken(token);
+            console.log('socket user:', user);
             if (!user) {
                 app.log.error("Invalid token for WebSocket connection");
                 return socket.disconnect(true); // Disconnect the client if the token is invalid
