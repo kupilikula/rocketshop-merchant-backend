@@ -1,5 +1,5 @@
 const knex = require("@database/knexInstance");
-const { v4: uuidv4 } = require("uuid");
+const {verifyAccessToken} = require("../services/TokenService");
 // Active connections map (if needed)
 const activeUsers = new Map();
 
