@@ -40,6 +40,18 @@ function initMessaging(io, app) {
     io.on("connection", (socket) => {
         app.log.info(`WebSocket connection established: ${socket.id} for user ${JSON.stringify(socket.user)}`);
 
+        // Add the user and their socket to activeUsers
+        const userId = socket.user.merchantId || socket.user.customerId; // Adjust based on your user structure
+        const userType = socket.user.merchantId ? "Merchant" : "Customer";
+
+        // Add the user's socket to activeUsers
+        if (!activeUsers.has(userId)) {
+            activeUsers.set(userId, new Set()); // Use a Set to store multiple sockets for the same user
+        }
+        activeUsers.get(userId).add(socket.id);
+
+        app.log.info(`User ${userId} (${userType}) connected. Active sockets: ${[...activeUsers.get(userId)]}`);
+
         // Join a chat room
         socket.on("joinChat", ({ chatId, userId, userType }) => {
             if (!chatId || !userId || !userType) {
@@ -71,22 +83,35 @@ function initMessaging(io, app) {
                 // Broadcast the message to all clients in the room except the sender
                 io.to(chatId).except(socket.id).emit("receiveMessage", newMessage);
 
-                // Emit `newMessage` event to **all sockets** except those belonging to the sender
-                io.sockets.sockets.forEach((socketInstance) => {
-                    let userId = senderType==='Merchant' ? socketInstance.user?.merchantId : socketInstance.user?.customerId;
-                    console.log('line77 senderId: ', senderId, ', socketInstance id:', socketInstance.id, ' , user:', socketInstance.user);
-                    if (userId !== senderId) {
-                        console.log('emitting newMessage to socketInstance id:', socketInstance.id, ' with user:', socketInstance.user);
-                        socketInstance.emit("newMessage", {
-                            chatId,
-                            senderId,
-                            senderType,
-                            message: newMessage.message,
-                            messageId: newMessage.messageId,
-                            created_at: newMessage.created_at,
-                        });
-                    }
-                });
+                // Determine the recipient's ID
+                const recipientId = await getRecipientId(chatId, senderId, senderType);
+                if (!recipientId) {
+                    app.log.error(`Failed to identify recipient for chatId: ${chatId}`);
+                    return;
+                }
+                // Notify all sockets of the recipient
+                const recipientSockets = activeUsers.get(recipientId);
+                console.log('recipientSockets for recipientId ', recipientId , ' : ', recipientSockets);
+                if (recipientSockets) {
+                    recipientSockets.forEach((socketId) => {
+                        const recipientSocket = io.sockets.sockets.get(socketId);
+                        if (recipientSocket) {
+                            recipientSocket.emit("newMessage", {
+                                chatId,
+                                senderId,
+                                senderType,
+                                message: newMessage.message,
+                                messageId: newMessage.messageId,
+                                created_at: newMessage.created_at,
+                            });
+                            app.log.info(
+                                `Sent newMessage event to socket ${socketId} for recipient ${recipientId}`
+                            );
+                        }
+                    });
+                } else {
+                    app.log.info(`Recipient ${recipientId} has no active sockets.`);
+                }
 
                 // Optionally log the message sent
                 app.log.info(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
@@ -112,12 +137,17 @@ function initMessaging(io, app) {
             io.to(chatId).except(socket.id).emit("stopTyping", { senderId });
         });
 
-        // Handle disconnections
+        // Handle user disconnection
         socket.on("disconnect", () => {
-            const user = activeUsers.get(socket.id);
-            if (user) {
-                app.log.info(`User ${user.userId} disconnected from chat ${user.chatId}`);
-                activeUsers.delete(socket.id);
+            const userSockets = activeUsers.get(userId);
+            if (userSockets) {
+                userSockets.delete(socket.id); // Remove the disconnected socket
+                if (userSockets.size === 0) {
+                    activeUsers.delete(userId); // Remove user from activeUsers if no sockets remain
+                    app.log.info(`User ${userId} disconnected. Removed from active users.`);
+                } else {
+                    app.log.info(`Socket ${socket.id} disconnected for user ${userId}. Remaining sockets: ${[...userSockets]}`);
+                }
             }
         });
     });
@@ -137,6 +167,34 @@ async function saveMessageToDatabase(chatId, messageId, senderId, senderType, me
         })
         .returning(['messageId', 'chatId', 'senderId', 'senderType', 'message', 'created_at']);
     return newMessage;
+}
+
+async function getRecipientId(chatId, senderId, senderType) {
+    try {
+        // Query the database to fetch the chat participants
+        const chat = await knex("chats")
+            .select("merchantId", "customerId")
+            .where({ chatId })
+            .first();
+
+        if (!chat) {
+            console.error(`Chat with ID ${chatId} not found.`);
+            return null;
+        }
+
+        // Determine the recipient based on the sender's type
+        if (senderType === "Merchant") {
+            return chat.customerId; // Recipient is the customer
+        } else if (senderType === "Customer") {
+            return chat.merchantId; // Recipient is the merchant
+        }
+
+        console.error("Invalid senderType:", senderType);
+        return null;
+    } catch (error) {
+        console.error("Error fetching recipient ID for chatId:", chatId, error);
+        return null;
+    }
 }
 
 module.exports = initMessaging;
