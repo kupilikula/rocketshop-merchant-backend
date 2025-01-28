@@ -41,8 +41,8 @@ function initMessaging(io, app) {
         app.log.info(`WebSocket connection established: ${socket.id} for user ${JSON.stringify(socket.user)}`);
 
         // Add the user and their socket to activeUsers
-        const userId = socket.user.merchantId || socket.user.customerId; // Adjust based on your user structure
-        const userType = socket.user.merchantId ? "Merchant" : "Customer";
+        const userId = socket.user.storeId || socket.user.customerId; // Adjust based on your user structure
+        const userType = socket.user.storeId ? "Merchant" : "Customer";
 
         // Add the user's socket to activeUsers
         if (!activeUsers.has(userId)) {
@@ -173,7 +173,7 @@ async function getRecipientId(chatId, senderId, senderType) {
     try {
         // Query the database to fetch the chat participants
         const chat = await knex("chats")
-            .select("merchantId", "customerId")
+            .select("storeId", "customerId")
             .where({ chatId })
             .first();
 
@@ -186,7 +186,7 @@ async function getRecipientId(chatId, senderId, senderType) {
         if (senderType === "Merchant") {
             return chat.customerId; // Recipient is the customer
         } else if (senderType === "Customer") {
-            return chat.merchantId; // Recipient is the merchant
+            return chat.storeId; // Recipient is the storeId for the merchant
         }
 
         console.error("Invalid senderType:", senderType);

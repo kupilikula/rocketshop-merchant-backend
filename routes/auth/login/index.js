@@ -35,10 +35,10 @@ module.exports = async function (fastify, opts) {
         ]);
 
         // Create payload (e.g., customerId or merchantId)
-        const payload = { merchantId: merchantId };
+        const payload = { merchantId: merchantId, storeId: storeId };
 
         const accessToken = generateAccessToken(payload);
-        const refreshToken = generateRefreshToken({ userId: merchantId });
+        const refreshToken = generateRefreshToken({ userId: merchantId, storeId: storeId });
         // Decode new refresh token to get expiresAt
         const decodedRefreshToken = decode(refreshToken);
         const expiresAt = new Date(decodedRefreshToken.exp * 1000); // Convert `exp` to milliseconds
