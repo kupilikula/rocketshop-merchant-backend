@@ -121,10 +121,24 @@ function initMessaging(io, app) {
             }
         });
 
-        socket.on("messageRead", ({ chatId, messageId, readerId }) => {
-            console.log("messageRead, messageId:", messageId, " , readerID:", readerId);
-            // Notify the sender
-            io.to(chatId).except(socket.id).emit("messageRead", { messageId, readerId });
+        socket.on("messagesRead", ({ chatId, messageIds, readerId }) => {
+            console.log("messagesRead event received for chatId:", chatId, ", messageIds:", messageIds, ", readerId:", readerId);
+
+            if (!chatId || !messageIds || !readerId) {
+                console.error("Missing parameters in messagesRead event.");
+                return;
+            }
+
+            try {
+                // Emit a single event with all the message IDs to all other clients in the chat room
+                io.to(chatId).except(socket.id).emit("messagesRead", { chatId, messageIds, readerId });
+
+                console.log(
+                    `Emitted messagesRead event for chatId: ${chatId}, messageIds: ${messageIds}, readerId: ${readerId}`
+                );
+            } catch (error) {
+                console.error("Error handling messagesRead event:", error);
+            }
         });
 
         socket.on("typing", ({ chatId, senderId }) => {

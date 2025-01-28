@@ -214,8 +214,16 @@ exports.up = async function (knex) {
         table.uuid('senderId').notNullable(); // Can be a `customerId` or `merchantId`
         table.enum('senderType', ['Customer', 'Merchant']).notNullable(); // Distinguish sender type
         table.text('message').notNullable(); // The message content
-        table.timestamp('read_at').nullable(); // When the message was read
         table.timestamps(true, true);
+    });
+
+    await knex.schema.createTable('message_reads', (table) => {
+        table.uuid('messageReadId').primary();
+        table.uuid('messageId').references('messageId').inTable('messages').onDelete('CASCADE'); // Message reference
+        table.uuid('readerId').notNullable(); // Can be a customerId or merchantId
+        table.enum('readerType', ['Customer', 'Merchant']).notNullable(); // Specify if the reader is a customer or a merchant
+        table.timestamp('read_at').notNullable(); // Timestamp of when the message was read
+        table.unique(['messageId', 'readerId']); // Ensure one record per reader-message combination
     });
 
     await knex.schema.createTable('refresh_tokens', (table) => {
