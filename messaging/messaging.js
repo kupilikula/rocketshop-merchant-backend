@@ -71,14 +71,18 @@ function initMessaging(io, app) {
                 // Broadcast the message to all clients in the room except the sender
                 io.to(chatId).except(socket.id).emit("receiveMessage", newMessage);
 
-                // Emit `newMessage` event to all clients for notifications/badging
-                socket.broadcast.except(socket.id).emit("newMessage", {
-                    chatId,
-                    senderId,
-                    senderType,
-                    message: newMessage.message,
-                    messageId: newMessage.messageId,
-                    created_at: newMessage.created_at,
+                // Emit `newMessage` event to **all sockets** except those belonging to the sender
+                io.sockets.sockets.forEach((socketInstance) => {
+                    if (socketInstance.user?.id !== senderId) {
+                        socketInstance.emit("newMessage", {
+                            chatId,
+                            senderId,
+                            senderType,
+                            message: newMessage.message,
+                            messageId: newMessage.messageId,
+                            created_at: newMessage.created_at,
+                        });
+                    }
                 });
 
                 // Optionally log the message sent
