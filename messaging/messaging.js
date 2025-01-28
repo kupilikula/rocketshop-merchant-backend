@@ -73,9 +73,9 @@ function initMessaging(io, app) {
 
                 // Emit `newMessage` event to **all sockets** except those belonging to the sender
                 io.sockets.sockets.forEach((socketInstance) => {
-
+                    let userId = senderType==='Merchant' ? socketInstance.user?.merchantId : socketInstance.user?.customerId;
                     console.log('line77 senderId: ', senderId, ', socketInstance id:', socketInstance.id, ' , user:', socketInstance.user);
-                    if (socketInstance.user?.id !== senderId) {
+                    if (userId !== senderId) {
                         console.log('emitting newMessage to socketInstance id:', socketInstance.id, ' with user:', socketInstance.user);
                         socketInstance.emit("newMessage", {
                             chatId,
