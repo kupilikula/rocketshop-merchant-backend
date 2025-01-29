@@ -272,6 +272,7 @@ exports.up = async function (knex) {
 
 exports.down = async function (knex) {
     await knex.schema.dropTableIfExists('refresh_tokens');
+    await knex.schema.dropTableIfExists('message_reads');
     await knex.schema.dropTableIfExists('messages');
     await knex.schema.dropTableIfExists('chats');
     await knex.schema.dropTableIfExists('customer_saved_items');
