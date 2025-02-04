@@ -1,5 +1,5 @@
 'use strict'
-
+const { v4: uuidv4 } = require("uuid");
 const knex = require("@database/knexInstance");
 
 module.exports = async function (fastify, opts) {
@@ -22,9 +22,11 @@ module.exports = async function (fastify, opts) {
         return reply.status(400).send({ error: 'Missing required offer fields.' });
       }
 
+      const offerId = uuidv4();
       // Insert the new offer into the database
       const [newOfferId] = await knex('offers')
           .insert({
+              offerId,
             storeId,
             offerName,
             offerDescription,
