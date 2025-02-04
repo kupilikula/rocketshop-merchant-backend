@@ -3,13 +3,11 @@
 const knex = require("@database/knexInstance");
 
 module.exports = async function (fastify, opts) {
-  fastify.post('/api/merchants/stores/:storeId/offers', async (request, reply) => {
+  fastify.post('/', async (request, reply) => {
     const { storeId } = request.params;
     const {
       offerName,
-      description,
-      offerCode,
-      requireCode = false,
+      offerDescription,
       offerType,
       discountDetails,
       applicableTo,
@@ -29,9 +27,7 @@ module.exports = async function (fastify, opts) {
           .insert({
             storeId,
             offerName,
-            description,
-            offerCode,
-            requireCode,
+            offerDescription,
             offerType,
             discountDetails: JSON.stringify(discountDetails),
             applicableTo: JSON.stringify(applicableTo),
