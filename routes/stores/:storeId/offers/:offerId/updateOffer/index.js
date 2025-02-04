@@ -7,9 +7,9 @@ module.exports = async function (fastify, opts) {
     const { storeId, offerId } = request.params;
     const {
       offerName,
-      description,
-      offerCode,
-      requireCode,
+      offerDescription,
+      // offerCode,
+      // requireCode,
       offerType,
       discountDetails,
       applicableTo,
@@ -31,9 +31,9 @@ module.exports = async function (fastify, opts) {
       // Prepare update object
       const updateFields = {};
       if (offerName) updateFields.offerName = offerName;
-      if (description) updateFields.description = description;
-      if (offerCode !== undefined) updateFields.offerCode = offerCode;
-      if (requireCode !== undefined) updateFields.requireCode = requireCode;
+      if (offerDescription) updateFields.offerDescription = offerDescription;
+      // if (offerCode !== undefined) updateFields.offerCode = offerCode;
+      // if (requireCode !== undefined) updateFields.requireCode = requireCode;
       if (offerType) updateFields.offerType = offerType;
       if (discountDetails) updateFields.discountDetails = JSON.stringify(discountDetails);
       if (applicableTo) updateFields.applicableTo = JSON.stringify(applicableTo);
