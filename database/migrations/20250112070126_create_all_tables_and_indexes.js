@@ -181,9 +181,9 @@ exports.up = async function (knex) {
         table.uuid('offerId').primary();
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
         table.string('offerName').notNullable();
-        table.text('offerDescription').nullable();
-        // table.string('offerCode').nullable();
-        // table.boolean('requireCode').defaultTo(false);
+        table.string('offerDisplayText').notNullable();
+        table.string('offerCode').nullable();
+        table.boolean('requireCode').defaultTo(false);
         table.enum('offerType', ['Percentage Off', 'Fixed Amount Off', 'Buy N Get K Free', 'Free Shipping']).notNullable();
         table.jsonb('discountDetails').notNullable();
         table.jsonb('applicableTo').notNullable();

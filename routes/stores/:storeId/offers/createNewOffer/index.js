@@ -7,7 +7,9 @@ module.exports = async function (fastify, opts) {
     const { storeId } = request.params;
     const {
       offerName,
-      offerDescription,
+      offerDisplayText,
+        offerCode,
+        requireCode,
       offerType,
       discountDetails,
       applicableTo,
@@ -18,7 +20,7 @@ module.exports = async function (fastify, opts) {
 
     try {
       // Input validation
-      if (!offerName || !offerType || !validityDateRange || !discountDetails) {
+      if (!offerName || !offerDisplayText || !offerType || !validityDateRange || !discountDetails) {
         return reply.status(400).send({ error: 'Missing required offer fields.' });
       }
 
@@ -29,7 +31,9 @@ module.exports = async function (fastify, opts) {
               offerId,
             storeId,
             offerName,
-            offerDescription,
+            offerDisplayText,
+              offerCode,
+              requireCode,
             offerType,
             discountDetails: JSON.stringify(discountDetails),
             applicableTo: JSON.stringify(applicableTo),

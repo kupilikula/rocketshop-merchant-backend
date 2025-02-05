@@ -461,7 +461,9 @@ exports.seed = async function (knex) {
                 offerId: faker.string.uuid(),
                 storeId: store.storeId,
                 offerName: faker.commerce.productAdjective() + " Offer",
-                offerDescription: faker.lorem.sentence(),
+                offerDisplayText: faker.lorem.words(3),
+                offerCode: faker.string.alphanumeric({length: 8}),
+                requireCode: faker.datatype.boolean(),
                 offerType: faker.helpers.arrayElement([
                     'Percentage Off',
                     'Fixed Amount Off',
