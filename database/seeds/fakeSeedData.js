@@ -476,9 +476,9 @@ exports.seed = async function (knex) {
                     { buyN: faker.number.int({ min: 1, max: 5 }), getK: faker.number.int({ min: 1, max: 5 }) },
                 ])),
                 applicableTo: JSON.stringify({
-                    products: randomProducts,
-                    collections: randomCollections,
-                    tags: faker.helpers.uniqueArray(
+                    productIds: randomProducts,
+                    collectionIds: randomCollections,
+                    productTags: faker.helpers.uniqueArray(
                         () => faker.word.adjective(),
                         faker.number.int({ min: 1, max: 3 })
                     ),
