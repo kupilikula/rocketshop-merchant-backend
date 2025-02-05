@@ -457,6 +457,14 @@ exports.seed = async function (knex) {
                 faker.number.int({ min: 1, max: Math.min(3, collections.length) })
             );
 
+            const offerType = faker.helpers.arrayElement([
+                'Percentage Off',
+                'Fixed Amount Off',
+                'Buy N Get K Free',
+                'Free Shipping',
+            ]);
+            const discountDetails = offerType==='Percentage Off' ?  { percentage: faker.number.int({ min: 5, max: 50 }) }
+                : (offerType==='Fixed Amount Off' ? { fixedAmount: faker.number.int({ min: 100, max: 1000 }) } : { buyN: faker.number.int({ min: 1, max: 5 }), getK: faker.number.int({ min: 1, max: 5 }) });
             offers.push({
                 offerId: faker.string.uuid(),
                 storeId: store.storeId,
@@ -464,17 +472,8 @@ exports.seed = async function (knex) {
                 offerDisplayText: faker.lorem.words(3),
                 offerCode: faker.string.alphanumeric({length: 8}),
                 requireCode: faker.datatype.boolean(),
-                offerType: faker.helpers.arrayElement([
-                    'Percentage Off',
-                    'Fixed Amount Off',
-                    'Buy N Get K Free',
-                    'Free Shipping',
-                ]),
-                discountDetails: JSON.stringify(faker.helpers.arrayElement([
-                    { percentage: faker.number.int({ min: 5, max: 50 }) },
-                    { fixedAmount: faker.number.int({ min: 100, max: 1000 }) },
-                    { buyN: faker.number.int({ min: 1, max: 5 }), getK: faker.number.int({ min: 1, max: 5 }) },
-                ])),
+                offerType: offerType,
+                discountDetails: JSON.stringify(discountDetails),
                 applicableTo: JSON.stringify({
                     productIds: randomProducts,
                     collectionIds: randomCollections,
@@ -484,7 +483,7 @@ exports.seed = async function (knex) {
                     ),
                 }),
                 conditions: JSON.stringify(faker.helpers.arrayElement([
-                    null,
+                    {},
                     { minimumPurchaseAmount: faker.number.int({ min: 100, max: 500 }) },
                     { minimumItems: faker.number.int({ min: 1, max: 10 }) },
                 ])),
