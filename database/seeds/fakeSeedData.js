@@ -84,7 +84,7 @@ exports.seed = async function (knex) {
     await knex('merchantStores').insert(merchantStores);
     console.log('MerchantStores seeded.');
 
-    // Seed collections
+// Seed collections
     console.log('Seeding collections...');
     const collections = [];
     for (const store of stores) {
@@ -107,14 +107,23 @@ exports.seed = async function (knex) {
     await knex('collections').insert(collections);
     console.log('Collections seeded.');
 
-    // Seed products and ensure each product belongs to at least one collection
+// Seed products and ensure each product belongs to at least one collection
     console.log('Seeding products...');
     const products = [];
     const productCollections = [];
     const chunkSize = 500;
 
-    for (const collection of collections) {
-        const numProducts = faker.number.int({ min: 10, max: 100 });
+// Map storeId to their collections for fast lookup
+    const storeCollectionsMap = collections.reduce((acc, collection) => {
+        if (!acc[collection.storeId]) acc[collection.storeId] = [];
+        acc[collection.storeId].push(collection.collectionId);
+        return acc;
+    }, {});
+
+    for (const store of stores) {
+        const numProducts = faker.number.int({ min: 20, max: 200 }); // Ensure each store has products
+        const storeCollectionIds = storeCollectionsMap[store.storeId] || [];
+
         for (let i = 0; i < numProducts; i++) {
             const { created_at, updated_at } = generateTimestamps();
             const productId = faker.string.uuid();
@@ -132,7 +141,7 @@ exports.seed = async function (knex) {
                         faker.number.int({ min: 0, max: 10 })
                     )
                 ),
-                storeId: collection.storeId,
+                storeId: store.storeId,
                 mediaItems: JSON.stringify(
                     faker.helpers.multiple(() => ({
                         mediaId: faker.string.uuid(),
@@ -153,17 +162,24 @@ exports.seed = async function (knex) {
                 updated_at,
             });
 
-            productCollections.push({
-                productId,
-                collectionId: collection.collectionId,
-                displayOrder: i + 1,
-                created_at,
-                updated_at,
-            });
+            // ✅ Ensure product is part of at least one collection
+            if (storeCollectionIds.length > 0) {
+                const numCollectionsForProduct = faker.number.int({ min: 1, max: Math.min(3, storeCollectionIds.length) });
+                const selectedCollections = faker.helpers.arrayElements(storeCollectionIds, numCollectionsForProduct);
+                selectedCollections.forEach((collectionId, index) => {
+                    productCollections.push({
+                        productId,
+                        collectionId,
+                        displayOrder: index + 1,
+                        created_at,
+                        updated_at,
+                    });
+                });
+            }
         }
     }
 
-    // Insert products in chunks
+// Insert products in chunks
     console.log(`Inserting ${products.length} products in chunks of ${chunkSize}...`);
     for (let i = 0; i < products.length; i += chunkSize) {
         const chunk = products.slice(i, i + chunkSize);
@@ -177,7 +193,7 @@ exports.seed = async function (knex) {
     }
     console.log('Products seeded.');
 
-    // Insert productCollections
+// Insert productCollections
     console.log(`Inserting ${productCollections.length} productCollections...`);
     await knex('productCollections').insert(productCollections);
     console.log('ProductCollections seeded.');
