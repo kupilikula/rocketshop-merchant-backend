@@ -491,6 +491,7 @@ exports.seed = async function (knex) {
                 offerType: offerType,
                 discountDetails: JSON.stringify(discountDetails),
                 applicableTo: JSON.stringify({
+                    storeWide: faker.datatype.boolean({probability: 0.1}),
                     productIds: randomProducts,
                     collectionIds: randomCollections,
                     productTags: faker.helpers.uniqueArray(
