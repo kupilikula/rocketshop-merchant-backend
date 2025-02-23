@@ -11,6 +11,7 @@ module.exports = async function (fastify, opts) {
             baseCost,
             formula,
             conditions,
+            applicableTo,
             isActive,
         } = request.body;
 
@@ -22,6 +23,7 @@ module.exports = async function (fastify, opts) {
                     baseCost,
                     formula,
                     conditions: JSON.stringify(conditions),
+                    applicableTo: JSON.stringify(applicableTo),
                     isActive,
                     updated_at: new Date(),
                 })

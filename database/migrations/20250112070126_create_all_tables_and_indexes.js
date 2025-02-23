@@ -201,6 +201,7 @@ exports.up = async function (knex) {
         table.decimal("baseCost", 10, 2).notNullable();
         table.string("formula").notNullable().defaultTo("baseCost");
         table.jsonb("conditions").notNullable().defaultTo('{}');
+        table.jsonb('applicableTo').notNullable().defaultTo('{}');
         table.integer("priority").notNullable();
         table.boolean("isActive").defaultTo(true);
         table.timestamps(true, true);

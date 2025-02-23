@@ -10,13 +10,14 @@ module.exports = async function (fastify, opts) {
             baseCost,
             formula,
             conditions,
+            applicableTo,
             priority,
             isActive = true,
         } = request.body;
 
         try {
             // Input validation
-            if (!ruleName || !baseCost || !formula || !conditions) {
+            if (!ruleName || !baseCost || !formula || !conditions || !applicableTo) {
                 return reply.status(400).send({ error: 'Missing required shipping rule fields.' });
             }
 
@@ -40,6 +41,7 @@ module.exports = async function (fastify, opts) {
                     ruleName,
                     baseCost,
                     conditions: JSON.stringify(conditions),
+                    applicableTo: JSON.stringify(applicableTo),
                     priority,
                     isActive,
                     created_at: new Date(),
