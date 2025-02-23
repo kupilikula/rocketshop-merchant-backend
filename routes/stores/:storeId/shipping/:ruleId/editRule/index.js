@@ -8,8 +8,8 @@ module.exports = async function (fastify, opts) {
         const { storeId, ruleId } = request.params;
         const {
             ruleName,
-            ruleDisplayText,
-            shippingCost,
+            baseCost,
+            formula,
             conditions,
             isActive,
         } = request.body;
@@ -19,8 +19,8 @@ module.exports = async function (fastify, opts) {
                 .where({ ruleId, storeId })
                 .update({
                     ruleName,
-                    ruleDisplayText,
-                    shippingCost,
+                    baseCost,
+                    formula,
                     conditions: JSON.stringify(conditions),
                     isActive,
                     updated_at: new Date(),

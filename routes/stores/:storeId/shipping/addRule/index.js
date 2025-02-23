@@ -7,8 +7,8 @@ module.exports = async function (fastify, opts) {
         const { storeId } = request.params;
         const {
             ruleName,
-            ruleDisplayText,
-            shippingCost,
+            baseCost,
+            formula,
             conditions,
             priority,
             isActive = true,
@@ -16,7 +16,7 @@ module.exports = async function (fastify, opts) {
 
         try {
             // Input validation
-            if (!ruleName || !ruleDisplayText || shippingCost === undefined || !conditions) {
+            if (!ruleName || !baseCost || !formula || !conditions) {
                 return reply.status(400).send({ error: 'Missing required shipping rule fields.' });
             }
 
@@ -38,8 +38,7 @@ module.exports = async function (fastify, opts) {
                     ruleId,
                     storeId,
                     ruleName,
-                    ruleDisplayText,
-                    shippingCost,
+                    baseCost,
                     conditions: JSON.stringify(conditions),
                     priority,
                     isActive,

@@ -198,8 +198,8 @@ exports.up = async function (knex) {
         table.uuid("ruleId").primary();
         table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
         table.string("ruleName").notNullable();
-        table.text("ruleDisplayText").notNullable();
-        table.decimal("shippingCost", 10, 2).notNullable();
+        table.decimal("baseCost", 10, 2).notNullable();
+        table.string("formula").notNullable().defaultTo("baseCost");
         table.jsonb("conditions").notNullable().defaultTo('{}');
         table.integer("priority").notNullable();
         table.boolean("isActive").defaultTo(true);
