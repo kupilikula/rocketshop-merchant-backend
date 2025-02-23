@@ -32,7 +32,7 @@ module.exports = async function (fastify, opts) {
             storeId,
             offerName,
             offerDisplayText,
-              offerCode,
+              offerCode: (offerCode || "").toUpperCase(),
               requireCode,
             offerType,
             discountDetails: JSON.stringify(discountDetails),

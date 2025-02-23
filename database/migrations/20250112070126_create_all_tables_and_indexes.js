@@ -193,6 +193,22 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    // Create `shippingRules` table
+    await knex.schema.createTable("shippingRules", function (table) {
+        table.uuid("ruleId").primary();
+        table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
+        table.string("ruleName").notNullable();
+        table.text("ruleDisplayText").notNullable();
+        table.decimal("shippingCost", 10, 2).notNullable();
+        table.jsonb("conditions").notNullable().defaultTo('{}');
+        table.integer("priority").notNullable();
+        table.boolean("isActive").defaultTo(true);
+        table.timestamps(true, true);
+
+        // Add an index on storeId and priority for efficient sorting and querying
+        table.index(['storeId', 'priority']);
+    });
+
     await knex.schema.createTable('customer_saved_items', (table) => {
         table.uuid('id').primary();
         table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
@@ -278,6 +294,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists('messages');
     await knex.schema.dropTableIfExists('chats');
     await knex.schema.dropTableIfExists('customer_saved_items');
+    await knex.schema.dropTableIfExists("shippingRules");
     await knex.schema.dropTableIfExists("offers");
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
