@@ -194,7 +194,7 @@ exports.up = async function (knex) {
     });
 
     // Create `shippingRules` table
-    await knex.schema.createTable("shippingRules", function (table) {
+    await knex.schema.createTable("shipping_rules", function (table) {
         table.uuid("ruleId").primary();
         table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
         table.string("ruleName").notNullable();
