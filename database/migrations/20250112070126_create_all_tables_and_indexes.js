@@ -1,4 +1,4 @@
-const orderStatusList = require("../../utils/orderStatusList");
+const {orderStatusList} = require("../../utils/orderStatusList");
 
 exports.up = async function (knex) {
     // Create `merchants` table
@@ -142,6 +142,17 @@ exports.up = async function (knex) {
         table.uuid('storeId').notNullable().references('storeId').inTable('stores').onDelete('CASCADE');
         table.timestamp('followed_at').defaultTo(knex.fn.now());
         table.primary(['customerId', 'storeId']);
+    });
+
+    await knex.schema.createTable("product_reviews", function (table) {
+        table.uuid("reviewId").primary();
+        table.uuid("productId").notNullable().references("productId").inTable("products").onDelete("CASCADE");
+        table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
+        table.integer("rating").notNullable().checkBetween([1, 5]); // 1 to 5
+        table.text("review").nullable(); // Optional review text
+        table.boolean("isVisible").defaultTo(true); // For moderation
+        table.timestamps(true, true);
+        table.unique(["productId", "customerId"]); // Prevent duplicate reviews
     });
 
     // Create `orders` table

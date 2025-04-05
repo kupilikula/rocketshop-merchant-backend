@@ -17,4 +17,9 @@ const orderStatusList = [
     "Returned", // Product has been returned by the customer
 ];
 
-module.exports = orderStatusList;
+const getCompletedOrderStatuses = () => {
+    const shippedIndex = orderStatusList.indexOf("Shipped");
+    return orderStatusList.slice(shippedIndex); // All statuses from 'Shipped' onwards
+};
+
+module.exports = {orderStatusList, getCompletedOrderStatuses};

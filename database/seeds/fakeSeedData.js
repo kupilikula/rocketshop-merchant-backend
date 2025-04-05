@@ -1,5 +1,5 @@
 const { faker } = require('@faker-js/faker');
-const orderStatusList = require("../../utils/orderStatusList");
+const {orderStatusList} = require("../../utils/orderStatusList");
 
 exports.seed = async function (knex) {
     // Deletes ALL existing entries
@@ -9,6 +9,7 @@ exports.seed = async function (knex) {
     await knex('order_items').del();
     await knex('orders').del();
     await knex('productCollections').del();
+    await knex('product_reviews').del();
     await knex('products').del();
     await knex('collections').del();
     await knex('customer_followed_stores').del();
@@ -452,6 +453,65 @@ exports.seed = async function (knex) {
     await knex('orders').insert(orders);
     await knex('order_items').insert(orderItemsData);
     await knex('order_status_history').insert(orderStatusHistoryData);
+
+    console.log("Seeding product reviews...");
+
+    const reviews = [];
+    const productRatingsMap = {}; // To track ratings for average calculation
+
+    for (const order of orders) {
+        // Consider only orders with "Shipped" or later status
+        const completedStatuses = orderStatusList.slice(orderStatusList.indexOf("Payment Received"));
+        if (!completedStatuses.includes(order.orderStatus)) continue;
+
+        // Get items in this order
+        const items = orderItemsData.filter((item) => item.orderId === order.orderId);
+
+        for (const item of items) {
+            // 70% chance this user rated the product
+            if (faker.datatype.boolean({ probability: 0.7 })) {
+                const rating = faker.number.int({ min: 1, max: 5 });
+                const hasReviewText = faker.datatype.boolean({ probability: 0.6 });
+
+                const review = {
+                    reviewId: faker.string.uuid(),
+                    productId: item.productId,
+                    customerId: order.customerId,
+                    rating,
+                    review: hasReviewText ? faker.lorem.sentences(faker.number.int({ min: 1, max: 3 })) : null,
+                    isVisible: true,
+                    created_at: faker.date.recent(90),
+                    updated_at: new Date(),
+                };
+
+                reviews.push(review);
+
+                // Track for aggregate calculation
+                if (!productRatingsMap[item.productId]) {
+                    productRatingsMap[item.productId] = [];
+                }
+                productRatingsMap[item.productId].push(rating);
+            }
+        }
+    }
+
+    await knex("product_reviews").insert(reviews);
+    console.log(`Inserted ${reviews.length} product reviews.`);
+
+// Update product rating aggregates
+    for (const [productId, ratings] of Object.entries(productRatingsMap)) {
+        const total = ratings.reduce((sum, r) => sum + r, 0);
+        const avg = (total / ratings.length).toFixed(2);
+        await knex("products")
+            .where({ productId })
+            .update({
+                rating: avg,
+                numberOfRatings: ratings.length,
+            });
+    }
+
+    console.log("Product ratings updated.");
+
 
     // Seed offers
     const offers = [];
