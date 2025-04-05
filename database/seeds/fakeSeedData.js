@@ -457,23 +457,27 @@ exports.seed = async function (knex) {
     console.log("Seeding product reviews...");
 
     const reviews = [];
-    const productRatingsMap = {}; // To track ratings for average calculation
+    const productRatingsMap = {}; // To track ratings per product
+    const reviewedPairs = new Set(); // To avoid duplicate (customerId, productId) reviews
 
     for (const order of orders) {
-        // Consider only orders with "Shipped" or later status
-        const completedStatuses = orderStatusList.slice(orderStatusList.indexOf("Payment Received"));
+        const completedStatuses = orderStatusList.slice(orderStatusList.indexOf("Shipped"));
         if (!completedStatuses.includes(order.orderStatus)) continue;
 
-        // Get items in this order
         const items = orderItemsData.filter((item) => item.orderId === order.orderId);
 
         for (const item of items) {
-            // 70% chance this user rated the product
+            const reviewKey = `${order.customerId}:${item.productId}`;
+
+            if (reviewedPairs.has(reviewKey)) continue; // Skip if already reviewed
+            reviewedPairs.add(reviewKey);
+
+            // 70% chance this user rates this product
             if (faker.datatype.boolean({ probability: 0.7 })) {
                 const rating = faker.number.int({ min: 1, max: 5 });
                 const hasReviewText = faker.datatype.boolean({ probability: 0.6 });
 
-                const review = {
+                reviews.push({
                     reviewId: faker.string.uuid(),
                     productId: item.productId,
                     customerId: order.customerId,
@@ -482,11 +486,8 @@ exports.seed = async function (knex) {
                     isVisible: true,
                     created_at: faker.date.recent(90),
                     updated_at: new Date(),
-                };
+                });
 
-                reviews.push(review);
-
-                // Track for aggregate calculation
                 if (!productRatingsMap[item.productId]) {
                     productRatingsMap[item.productId] = [];
                 }
@@ -496,9 +497,9 @@ exports.seed = async function (knex) {
     }
 
     await knex("product_reviews").insert(reviews);
-    console.log(`Inserted ${reviews.length} product reviews.`);
+    console.log(`Inserted ${reviews.length} unique product reviews.`);
 
-// Update product rating aggregates
+// Update rating aggregates
     for (const [productId, ratings] of Object.entries(productRatingsMap)) {
         const total = ratings.reduce((sum, r) => sum + r, 0);
         const avg = (total / ratings.length).toFixed(2);
