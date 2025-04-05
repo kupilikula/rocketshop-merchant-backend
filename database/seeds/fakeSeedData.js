@@ -443,7 +443,7 @@ exports.seed = async function (knex) {
         });
 
         orderStatusHistoryData.push({
-            id: faker.number.int({min: 100, max: 1000000}),
+            orderStatusId: faker.string.uuid(),
             orderId,
             orderStatus,
             updated_at: orderStatusUpdateTime,

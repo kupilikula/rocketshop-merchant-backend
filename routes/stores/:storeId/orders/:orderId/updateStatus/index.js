@@ -1,5 +1,6 @@
 'use strict'
 
+const {v4: uuidv4} = require('uuid');
 const knex = require("@database/knexInstance");
 
 module.exports = async function (fastify, opts) {
@@ -27,6 +28,7 @@ module.exports = async function (fastify, opts) {
 
       // Insert the status update into the order_status_history table
       await knex('order_status_history').insert({
+        orderStatusId: uuidv4(),
         orderId,
         status: newStatus,
         updated_at: new Date(),

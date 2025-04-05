@@ -171,7 +171,7 @@ exports.up = async function (knex) {
 
     // Create `order_status_history` table
     await knex.schema.createTable("order_status_history", function (table) {
-        table.increments("id").primary();
+        table.uuid("orderStatusId").primary();
         table.uuid("orderId").notNullable().references("orderId").inTable("orders").onDelete("CASCADE");
         table.enum("orderStatus", orderStatusList).notNullable();
         table.timestamps(true, true);
