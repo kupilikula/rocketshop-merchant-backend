@@ -133,8 +133,8 @@ exports.up = async function (knex) {
         ALTER TABLE recipients
         ADD CONSTRAINT check_self_recipient_null_fields
         CHECK (
-            (type = 'SELF' AND fullName IS NULL AND phone IS NULL) OR
-            (type = 'OTHER' AND fullName IS NOT NULL AND phone IS NOT NULL)
+            (type = 'SELF' AND "fullName" IS NULL AND phone IS NULL) OR
+            (type = 'OTHER' AND "fullName" IS NOT NULL AND phone IS NOT NULL)
         )
     `);
 
