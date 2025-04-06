@@ -141,7 +141,7 @@ exports.up = async function (knex) {
     // Add unique constraint to ensure only one SELF recipient per customer
     await knex.raw(`
         CREATE UNIQUE INDEX unique_self_recipient_per_customer
-            ON recipients (customerId)
+            ON recipients ("customerId")
             WHERE type = 'SELF'
     `);
 
