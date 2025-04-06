@@ -102,7 +102,7 @@ exports.up = async function (knex) {
         table.string("customerHandle").unique().notNullable();
         table.string("fullName").notNullable();
         table.string("email").nullable();
-        table.string("phone").nullable();
+        table.string("phone").notNullable().unique();
         table.timestamps(true, true);
     });
 
@@ -121,12 +121,31 @@ exports.up = async function (knex) {
     // Create recipients table
     await knex.schema.createTable("recipients", function (table) {
         table.uuid("recipientId").primary();
+        table.enum("type", ["SELF", "OTHER"]).notNullable().defaultTo("OTHER");
         table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
-        table.string("fullName").notNullable();
-        table.string("phone").notNullable();
+        table.string("fullName").nullable();
+        table.string("phone").nullable();
         table.boolean("isDefaultRecipient").defaultTo(false); // Default recipient for the customer
         table.timestamps(true, true);
     });
+    // Add check constraint for SELF type fields
+    await knex.raw(`
+        ALTER TABLE recipients
+        ADD CONSTRAINT check_self_recipient_null_fields
+        CHECK (
+            (type = 'SELF' AND fullName IS NULL AND phone IS NULL) OR
+            (type = 'OTHER' AND fullName IS NOT NULL AND phone IS NOT NULL)
+        )
+    `);
+
+    // Add unique constraint to ensure only one SELF recipient per customer
+    await knex.raw(`
+        ALTER TABLE recipients
+        ADD CONSTRAINT unique_self_recipient_per_customer
+        UNIQUE (customerId, type)
+        WHERE type = 'SELF'
+    `);
+
 
     await knex.schema.createTable("recipientAddresses", function (table) {
         table.uuid("recipientAddressId").primary();

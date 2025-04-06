@@ -267,8 +267,9 @@ exports.seed = async function (knex) {
         recipients.push({
             recipientId: defaultRecipientId,
             customerId: customer.customerId,
-            fullName: customer.fullName,
-            phone: customer.phone,
+            type: 'SELF',
+            fullName: null,
+            phone: null,
             isDefaultRecipient: true,
             created_at,
             updated_at,
@@ -294,6 +295,7 @@ exports.seed = async function (knex) {
             recipients.push({
                 recipientId: additionalRecipientId,
                 customerId: customer.customerId,
+                type: 'OTHER',
                 fullName: faker.person.fullName(),
                 phone: faker.phone.number(),
                 isDefaultRecipient: false,
