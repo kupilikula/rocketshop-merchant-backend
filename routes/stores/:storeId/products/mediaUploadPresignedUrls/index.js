@@ -29,7 +29,7 @@ module.exports = async function (fastify, opts) {
       const presignedUrls = await Promise.all(
           fileKeysWithContentTypes.map(async (item) => {
             const params = {
-              Bucket: 'pocketshop-media', // Replace with your Space name
+              Bucket: 'rocketshop-media', // Replace with your Space name
               Key: item.fileKey,
               ContentType: item.contentType, // Adjust content type as needed
               ACL: 'public-read', // Adjust based on your access needs
@@ -40,7 +40,7 @@ module.exports = async function (fastify, opts) {
 
             return {
               presignedUrl,
-              fileUri: `https://pocketshop-media.blr1.cdn.digitaloceanspaces.com/${item.fileKey}`,
+              fileUri: `https://rocketshop-media.blr1.cdn.digitaloceanspaces.com/${item.fileKey}`,
             };
           })
       );
