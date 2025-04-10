@@ -106,6 +106,19 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('otp_verification', function(table) {
+        table.increments('otpId').primary();
+        table.string('phone', 15).notNullable().index(); // E.164 international format recommended
+        table.string('otp', 10).notNullable();
+        table.enum('app', ['marketplace', 'merchant']).notNullable();
+        table.timestamp('created_at').defaultTo(knex.fn.now());
+
+        // Optional: useful for analytics / abuse tracking
+        // table.string('request_id'); // If using a 3rd party OTP provider
+        // table.string('ip_address');
+        // table.string('user_agent');
+    });
+
     // Create `deliveryAddresses` table
     await knex.schema.createTable("deliveryAddresses", function (table) {
         table.uuid("addressId").primary();
@@ -334,6 +347,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("recipientAddresses");
     await knex.schema.dropTableIfExists("recipients");
     await knex.schema.dropTableIfExists("deliveryAddresses");
+    await knex.schema.dropTableIfExists("otp_verification");
     await knex.schema.dropTableIfExists("customers");
     await knex.schema.dropTableIfExists("productVariants");
     await knex.schema.dropTableIfExists("variantGroups");
