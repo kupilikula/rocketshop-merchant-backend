@@ -111,6 +111,7 @@ exports.up = async function (knex) {
         table.string('phone', 15).notNullable().index(); // E.164 international format recommended
         table.string('otp', 10).notNullable();
         table.enum('app', ['marketplace', 'merchant']).notNullable();
+        table.boolean('isVerified').defaultTo(false);
         table.timestamp('created_at').defaultTo(knex.fn.now());
 
         // Optional: useful for analytics / abuse tracking
