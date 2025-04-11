@@ -112,6 +112,7 @@ exports.up = async function (knex) {
         table.string('otp', 10).notNullable();
         table.enum('app', ['marketplace', 'merchant']).notNullable();
         table.boolean('isVerified').defaultTo(false);
+        table.integer('attemptCount').defaultTo(0);
         table.timestamp('created_at').defaultTo(knex.fn.now());
 
         // Optional: useful for analytics / abuse tracking
