@@ -23,7 +23,7 @@ module.exports = async function (fastify, opts) {
 
         // Find Merchant
         const merchant = await knex('merchants')
-            .where({ merchantPhone: phone })
+            .where({ phone })
             .first();
 
         if (!merchant) {
