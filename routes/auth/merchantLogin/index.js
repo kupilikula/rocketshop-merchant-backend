@@ -25,6 +25,7 @@ module.exports = async function (fastify, opts) {
         const merchant = await knex('merchants')
             .where({ phone })
             .first();
+        console.log('merchant:', merchant);
 
         if (!merchant) {
             return reply.status(404).send({ error: 'Merchant not found' });
@@ -35,6 +36,7 @@ module.exports = async function (fastify, opts) {
             .join('merchantStores', 'stores.storeId', 'merchantStores.storeId')
             .where('merchantStores.merchantId', merchant.merchantId)
             .select('stores.*');
+        console.log('stores:', stores);
 
         // Generate tokens & send response
         await TokenService.replyWithAuthTokens(reply, merchant, stores);
