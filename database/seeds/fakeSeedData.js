@@ -30,7 +30,7 @@ exports.seed = async function (knex) {
         return {
             merchantId: faker.string.uuid(),
             fullName: faker.person.fullName(),
-            phone: faker.phone.number({ style: 'international' }),
+            phone: faker.phone.number({ style: 'international' }).slice(1),
             merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
             created_at,
             updated_at,
