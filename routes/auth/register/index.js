@@ -37,8 +37,8 @@ module.exports = async function (fastify, opts) {
         const [merchant] = await knex('merchants')
             .insert({
                 merchantId,
-                merchantName: fullName,
-                merchantPhone: phone,
+                fullName,
+                phone,
                 merchantRole: 'Admin', // Default role
                 created_at: knex.fn.now(),
             })
