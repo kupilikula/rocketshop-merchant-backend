@@ -29,8 +29,8 @@ exports.seed = async function (knex) {
         const { created_at, updated_at } = generateTimestamps();
         return {
             merchantId: faker.string.uuid(),
-            merchantName: faker.person.fullName(),
-            merchantPhone: faker.phone.number({ style: 'international' }),
+            fullName: faker.person.fullName(),
+            phone: faker.phone.number({ style: 'international' }),
             merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
             created_at,
             updated_at,

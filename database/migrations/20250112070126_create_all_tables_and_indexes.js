@@ -4,8 +4,8 @@ exports.up = async function (knex) {
     // Create `merchants` table
     await knex.schema.createTable('merchants', (table) => {
         table.uuid('merchantId').primary();
-        table.string('merchantName').notNullable();
-        table.string('merchantPhone').unique().notNullable();
+        table.string('fullName').notNullable();
+        table.string('phone').unique().notNullable();
         table.enum('merchantRole', ['Admin', 'Manager', 'Staff']).notNullable();
         table.timestamps(true, true);
     });
