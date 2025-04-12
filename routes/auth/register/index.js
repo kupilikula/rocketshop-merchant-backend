@@ -14,7 +14,7 @@ module.exports = async function (fastify, opts) {
 
         // Check if merchant already exists
         const existingMerchant = await knex('merchants')
-            .where({ merchantPhone: phone })
+            .where({ phone })
             .first();
 
         if (existingMerchant) {
