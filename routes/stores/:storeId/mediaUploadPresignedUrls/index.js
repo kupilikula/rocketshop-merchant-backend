@@ -19,9 +19,9 @@ module.exports = async function (fastify, opts) {
     const { storeId } = request.params;
     const { fileKeysWithContentTypes } = request.body;
 
-    if (!storeId || !fileKeysWithContentTypes || !Array.isArray(fileKeysWithContentTypes)) {
-      return reply.status(400).send({ error: 'Invalid request. storeId and mediaItems are required.' });
-    }
+      if (!storeId || !fileKeysWithContentTypes || !Array.isArray(fileKeysWithContentTypes) || fileKeysWithContentTypes.length === 0) {
+          return reply.status(400).send({ error: 'storeId and fileKeysWithContentTypes array is required.' });
+      }
 
     try {
 

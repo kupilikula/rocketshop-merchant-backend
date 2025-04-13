@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
 
-        const { storeName, storeHandle, storeDescription, storeLogoImage, storeBrandColor, storeTags } = request.body;
+        const { storeId, storeName, storeHandle, storeDescription, storeLogoImage, storeTags } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
         if (!storeName || !storeHandle || !storeDescription) {
@@ -15,16 +15,15 @@ module.exports = async function (fastify, opts) {
 
         // Optional: Check if storeHandle is taken
         const existingStore = await knex('stores')
-            .where({ storeHandle })
+            .where('storeId', storeId)
+            .orWhere('storeHandle', storeHandle)
             .first();
 
         if (existingStore) {
-            return reply.status(400).send({ error: 'Store handle already taken' });
+            return reply.status(400).send({ error: 'Store with this ID or Handle already exists' });
         }
 
         // Create store
-        const storeId = uuidv4();
-
         const [store] = await knex('stores')
             .insert({
                 storeId,
@@ -32,7 +31,6 @@ module.exports = async function (fastify, opts) {
                 storeHandle,
                 storeDescription,
                 storeLogoImage: storeLogoImage || null,
-                storeBrandColor: storeBrandColor || null,
                 storeTags: JSON.stringify(storeTags || []),
                 created_at: knex.fn.now(),
             })

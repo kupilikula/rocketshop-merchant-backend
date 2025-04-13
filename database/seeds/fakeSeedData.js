@@ -47,7 +47,6 @@ exports.seed = async function (knex) {
             storeId: faker.string.uuid(),
             storeName: faker.company.name(),
             storeDescription: faker.lorem.text(),
-            storeBrandColor: faker.color.rgb(),
             storeLogoImage: faker.image.url(),
             storeTags: JSON.stringify(faker.helpers.uniqueArray(
                 () => faker.word.adjective(),

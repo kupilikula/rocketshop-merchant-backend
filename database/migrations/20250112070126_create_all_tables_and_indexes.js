@@ -15,7 +15,6 @@ exports.up = async function (knex) {
         table.uuid("storeId").primary();
         table.string("storeName").notNullable();
         table.string("storeLogoImage").nullable();
-        table.string("storeBrandColor").nullable();
         table.text("storeDescription").notNullable();
         table.string('storeHandle').unique().notNullable(); // Add storeHandle column, must be unique
         table.integer('followerCount').defaultTo(0); // Add followerCount column with a default value of 0
