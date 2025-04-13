@@ -6,7 +6,7 @@ const knex = require("@database/knexInstance");
 module.exports = async function (fastify, opts) {
   fastify.post('/', async (request, reply) => {
     const { storeId } = request.params;
-    const { collectionName, isActive, storeFrontDisplay, storeFrontDisplayNumberOfItems } = request.body;
+    const { collectionName, isActive = false, storeFrontDisplay = true, storeFrontDisplayNumberOfItems = 6 } = request.body;
 
     try {
       const collectionId = uuidv4();
