@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
 
-        const { storeId, storeName, storeHandle, storeDescription, storeLogoImage, storeTags } = request.body;
+        const { storeId, storeName, storeHandle, storeDescription, storeTags } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
         if (!storeName || !storeHandle || !storeDescription) {
@@ -30,7 +30,7 @@ module.exports = async function (fastify, opts) {
                 storeName,
                 storeHandle,
                 storeDescription,
-                storeLogoImage: storeLogoImage || null,
+                storeLogoImage:  null,
                 storeTags: JSON.stringify(storeTags || []),
                 created_at: knex.fn.now(),
             })
