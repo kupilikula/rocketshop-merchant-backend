@@ -13,7 +13,7 @@ module.exports = async function (fastify, opts) {
           .orderBy('created_at', 'desc');
 
       if (!products || products.length === 0) {
-        return reply.status(404).send({ error: 'No products found for this store.' });
+        return reply.status(200).send([]);
       }
 
       // Fetch product-collection relations and collection details
