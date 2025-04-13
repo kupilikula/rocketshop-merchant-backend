@@ -7,9 +7,9 @@ const knex = require('@database/knexInstance');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
         const { storeId } = request.params;
-        const { logoImageUrl } = request.body;
+        const { storeLogoImage } = request.body;
 
-        if (!storeId || !logoImageUrl) {
+        if (!storeId || !storeLogoImage) {
             return reply.status(400).send({ error: 'Missing required fields' });
         }
 
@@ -17,7 +17,7 @@ module.exports = async function (fastify, opts) {
         await knex('stores')
             .where({ storeId })
             .update({
-                storeLogoImage: logoImageUrl,
+                storeLogoImage,
                 updated_at: knex.fn.now(),
             });
 
