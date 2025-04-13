@@ -12,20 +12,20 @@ module.exports = async function (fastify, opts) {
           .where({ storeId })
           .orderBy('displayOrder', 'asc'); // Fetch all fields and order by displayOrder
 
-      if (!collections.length) {
-        return reply.status(404).send({ error: 'No collections found for this store.' });
-      }
 
       // Fetch product counts for each collection
-      const productCounts = await knex('productCollections')
-          .join('products', 'productCollections.productId', 'products.productId')
-          .select(
-              'productCollections.collectionId',
-              knex.raw('SUM(CASE WHEN "products"."isActive" THEN 1 ELSE 0 END) as "activeProducts"'),
-              knex.raw('SUM(CASE WHEN NOT "products"."isActive" THEN 1 ELSE 0 END) as "inactiveProducts"')
-          )
-          .whereIn('productCollections.collectionId', collections.map((c) => c.collectionId))
-          .groupBy('productCollections.collectionId');
+      let productCounts = []
+      if (collections.length > 0) {
+         productCounts = await knex('productCollections')
+            .join('products', 'productCollections.productId', 'products.productId')
+            .select(
+                'productCollections.collectionId',
+                knex.raw('SUM(CASE WHEN "products"."isActive" THEN 1 ELSE 0 END) as "activeProducts"'),
+                knex.raw('SUM(CASE WHEN NOT "products"."isActive" THEN 1 ELSE 0 END) as "inactiveProducts"')
+            )
+            .whereIn('productCollections.collectionId', collections.map((c) => c.collectionId))
+            .groupBy('productCollections.collectionId');
+      }
 
       // Map product counts into the collections
       const collectionsWithCounts = collections.map((collection) => {
