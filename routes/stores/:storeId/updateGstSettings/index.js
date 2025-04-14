@@ -40,6 +40,10 @@ module.exports = async function (fastify, opts) {
                 updated_at: knex.fn.now(),
             });
 
-        return reply.status(200).send({ success: true });
+        const storeSettings = await knex('storeSettings')
+            .where({ storeId })
+            .first();
+
+        return reply.status(200).send({ storeSettings });
     });
 }
