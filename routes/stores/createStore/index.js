@@ -46,7 +46,7 @@ module.exports = async function (fastify, opts) {
                 merchantStoreId: uuidv4(),
                 merchantId,
                 storeId,
-                role: 'Admin',
+                merchantRole: 'Admin',
                 canReceiveMessages: true,
                 created_at: knex.fn.now(),
             });
