@@ -31,7 +31,6 @@ exports.seed = async function (knex) {
             merchantId: faker.string.uuid(),
             fullName: faker.person.fullName(),
             phone: faker.phone.number({ style: 'international' }).slice(1),
-            merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
             created_at,
             updated_at,
         };
@@ -74,7 +73,7 @@ exports.seed = async function (knex) {
                 merchantStoreId: faker.string.uuid(),
                 merchantId: merchant.merchantId,
                 storeId: store.storeId,
-                role: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
+                merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
                 created_at,
                 updated_at,
             });
