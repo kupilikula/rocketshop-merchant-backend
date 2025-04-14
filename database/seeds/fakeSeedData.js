@@ -60,10 +60,8 @@ exports.seed = async function (knex) {
     await knex('stores').insert(stores);
     console.log('Stores seeded.');
 
-    // Seed storeSettings
     console.log('Seeding storeSettings...');
     const storeSettings = stores.map((store) => ({
-        storeSettingsId: faker.string.uuid(),
         storeId: store.storeId,
         defaultGstRate: faker.helpers.arrayElement([0, 5, 12, 18, 28]),
         defaultGstInclusive: faker.datatype.boolean(),

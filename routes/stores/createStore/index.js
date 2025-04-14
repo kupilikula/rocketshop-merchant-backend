@@ -58,7 +58,6 @@ module.exports = async function (fastify, opts) {
         // Insert default GST settings
         await knex('storeSettings')
             .insert({
-                storeSettingsId: uuidv4(),
                 storeId,
                 defaultGstRate,
                 defaultGstInclusive,
