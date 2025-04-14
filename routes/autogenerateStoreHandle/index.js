@@ -14,7 +14,7 @@ module.exports = async function (fastify, opts) {
             .toLowerCase()
             .replace(/[^a-z0-9 ]/g, '') // Remove special chars
             .trim()
-            .replace(/\s+/g, '-'); // Replace spaces with -
+            .replace(/\s+/g, ''); // Replace spaces with -
 
         let handle = baseHandle;
         let suffix = 1;
