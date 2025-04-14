@@ -9,7 +9,6 @@ module.exports = async function (fastify, opts) {
             .where('merchantStores.storeId', storeId)
             .select(
                 'merchants.*',
-                'merchants.phone',
                 'merchantStores.role',
                 'merchantStores.canReceiveMessages'
             );
