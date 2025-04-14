@@ -166,8 +166,6 @@ exports.seed = async function (knex) {
                 gstInclusive: faker.datatype.boolean(),
                 rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
                 numberOfRatings: faker.number.int({ min: 0, max: 500 }),
-                enableRatings: faker.datatype.boolean(),
-                enableReviews: faker.datatype.boolean(),
                 enableStockTracking: faker.datatype.boolean(),
                 created_at,
                 updated_at,
