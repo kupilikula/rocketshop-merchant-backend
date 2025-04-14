@@ -11,6 +11,10 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: "Missing phone or role" });
         }
 
+        if (!['Admin', 'Manager', 'Staff'].includes(role)) {
+            return reply.status(400).send({ error: "Invalid role" });
+        }
+
         const requestingMerchant = await knex('merchantStores')
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
@@ -19,6 +23,12 @@ module.exports = async function (fastify, opts) {
             return reply.status(403).send({ error: "Only Admin or Manager roles can add merchants" });
         }
 
+        // Restrict Manager from adding Admins
+        if (requestingMerchant.role === 'Manager' && role === 'Admin') {
+            return reply.status(403).send({ error: "Managers can only add Staff or Manager roles" });
+        }
+
+        // Check if merchant exists
         let merchant = await knex('merchants').where({ phone }).first();
 
         if (!merchant) {
@@ -32,14 +42,14 @@ module.exports = async function (fastify, opts) {
                     merchantId,
                     fullName,
                     phone,
-                    merchantRole: 'Staff', // default or based on business rule
+                    merchantRole: 'Staff', // Global role
                     created_at: knex.fn.now()
                 })
                 .returning('*')
                 .then(rows => rows[0]);
         }
 
-        // Check if already associated
+        // Check if already associated with this store
         const existingAssociation = await knex('merchantStores')
             .where({ storeId, merchantId: merchant.merchantId })
             .first();
