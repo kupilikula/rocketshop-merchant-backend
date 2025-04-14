@@ -6,7 +6,6 @@ exports.up = async function (knex) {
         table.uuid('merchantId').primary();
         table.string('fullName').notNullable();
         table.string('phone').unique().notNullable();
-        table.enum('merchantRole', ['Admin', 'Manager', 'Staff']).notNullable();
         table.timestamps(true, true);
     });
 
@@ -28,7 +27,7 @@ exports.up = async function (knex) {
         table.uuid('merchantStoreId').primary();
         table.uuid('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
-        table.enum('role', ['Admin', 'Manager', 'Staff']).notNullable();
+        table.enum('merchantRole', ['Admin', 'Manager', 'Staff']).notNullable();
         table.boolean('canReceiveMessages').defaultTo(true);
         table.timestamps(true, true);
     });

@@ -4,27 +4,27 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         const { storeId } = request.params;
-        const { phone, fullName, role } = request.body;
+        const { phone, fullName, merchantRole } = request.body;
         const requestingMerchantId = request.user.merchantId;
 
-        if (!phone || !role) {
-            return reply.status(400).send({ error: "Missing phone or role" });
+        if (!phone || !merchantRole) {
+            return reply.status(400).send({ error: "Missing phone or merchantRole" });
         }
 
-        if (!['Admin', 'Manager', 'Staff'].includes(role)) {
-            return reply.status(400).send({ error: "Invalid role" });
+        if (!['Admin', 'Manager', 'Staff'].includes(merchantRole)) {
+            return reply.status(400).send({ error: "Invalid merchantRole" });
         }
 
         const requestingMerchant = await knex('merchantStores')
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
 
-        if (!requestingMerchant || (requestingMerchant.role !== 'Admin' && requestingMerchant.role !== 'Manager')) {
+        if (!requestingMerchant || (requestingMerchant.merchantRole !== 'Admin' && requestingMerchant.merchantRole !== 'Manager')) {
             return reply.status(403).send({ error: "Only Admin or Manager roles can add merchants" });
         }
 
         // Restrict Manager from adding Admins
-        if (requestingMerchant.role === 'Manager' && role === 'Admin') {
+        if (requestingMerchant.merchantRole === 'Manager' && merchantRole === 'Admin') {
             return reply.status(403).send({ error: "Managers can only add Staff or Manager roles" });
         }
 
@@ -62,7 +62,7 @@ module.exports = async function (fastify, opts) {
             merchantStoreId: uuidv4(),
             storeId,
             merchantId: merchant.merchantId,
-            role,
+            merchantRole,
             created_at: knex.fn.now()
         });
 

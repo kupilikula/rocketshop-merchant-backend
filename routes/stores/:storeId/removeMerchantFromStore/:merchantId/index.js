@@ -26,11 +26,11 @@ module.exports = async function (fastify, opts) {
         }
 
         // Role-based checks
-        if (requestingMerchant.role === 'Manager' && targetMerchant.role !== 'Staff') {
+        if (requestingMerchant.merchantRole === 'Manager' && targetMerchant.merchantRole !== 'Staff') {
             return reply.status(403).send({ error: 'Managers can only remove Staff merchants.' });
         }
 
-        if (requestingMerchant.role !== 'Admin' && requestingMerchant.role !== 'Manager') {
+        if (requestingMerchant.merchantRole !== 'Admin' && requestingMerchant.merchantRole !== 'Manager') {
             return reply.status(403).send({ error: 'Only Admin or Manager can remove merchants.' });
         }
 
@@ -45,9 +45,9 @@ module.exports = async function (fastify, opts) {
         }
 
         // Prevent removing the only Admin
-        if (targetMerchant.role === 'Admin') {
+        if (targetMerchant.merchantRole === 'Admin') {
             const adminCount = await knex('merchantStores')
-                .where({ storeId, role: 'Admin' })
+                .where({ storeId, merchantRole: 'Admin' })
                 .count('merchantStoreId as count')
                 .first();
 
