@@ -32,6 +32,13 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('storeSettings', (table) => {
+        table.uuid('storeId').primary().references('storeId').inTable('stores').onDelete('CASCADE');
+        table.boolean('defaultGstInclusive').defaultTo(true);
+        table.integer('defaultGstRate').defaultTo(18); // allowed values: [0, 5, 12, 18, 28]
+        table.timestamps(true, true);
+    });
+
     // Create `collections` table
     await knex.schema.createTable("collections", function (table) {
         table.uuid("collectionId").primary();

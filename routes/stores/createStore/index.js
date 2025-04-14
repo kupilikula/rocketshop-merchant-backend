@@ -6,14 +6,18 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
 
-        const { storeId, storeName, storeHandle, storeDescription, storeTags } = request.body;
+        const { storeId, storeName, storeHandle, storeDescription, storeTags, defaultGstRate, defaultGstInclusive } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
         if (!storeName || !storeHandle || !storeDescription) {
             return reply.status(400).send({ error: 'Missing required fields' });
         }
 
-        // Optional: Check if storeHandle is taken
+        if (defaultGstRate === undefined || defaultGstInclusive === undefined) {
+            return reply.status(400).send({ error: 'Missing GST settings' });
+        }
+
+        // Check if storeId or storeHandle already exists
         const existingStore = await knex('stores')
             .where('storeId', storeId)
             .orWhere('storeHandle', storeHandle)
@@ -30,7 +34,7 @@ module.exports = async function (fastify, opts) {
                 storeName,
                 storeHandle,
                 storeDescription,
-                storeLogoImage:  null,
+                storeLogoImage: null,
                 storeTags: JSON.stringify(storeTags || []),
                 created_at: knex.fn.now(),
             })
@@ -48,6 +52,16 @@ module.exports = async function (fastify, opts) {
                 storeId,
                 merchantRole: 'Admin',
                 canReceiveMessages: true,
+                created_at: knex.fn.now(),
+            });
+
+        // Insert default GST settings
+        await knex('storeSettings')
+            .insert({
+                storeSettingsId: uuidv4(),
+                storeId,
+                defaultGstRate,
+                defaultGstInclusive,
                 created_at: knex.fn.now(),
             });
 
