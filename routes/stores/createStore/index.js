@@ -6,13 +6,14 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
 
-        const { storeId, storeName, storeHandle, storeDescription, storeTags, defaultGstRate, defaultGstInclusive } = request.body;
+        const { storeId, storeName, storeHandle, storeDescription, storeTags, storeSettings } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
-        if (!storeName || !storeHandle || !storeDescription) {
+        if (!storeName || !storeHandle || !storeDescription || !storeSettings) {
             return reply.status(400).send({ error: 'Missing required fields' });
         }
 
+        const { defaultGstRate, defaultGstInclusive } = storeSettings;
         if (defaultGstRate === undefined || defaultGstInclusive === undefined) {
             return reply.status(400).send({ error: 'Missing GST settings' });
         }
