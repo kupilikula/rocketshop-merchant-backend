@@ -11,7 +11,10 @@ module.exports = async function (fastify, opts) {
         const stores = await knex('stores')
             .join('merchantStores', 'stores.storeId', 'merchantStores.storeId')
             .where('merchantStores.merchantId', merchantId)
-            .select('stores.*');
+            .select(
+                'stores.*',
+                'merchantStores.merchantRole' // Add merchantRole from pivot table
+            );
 
         return reply.send(stores);
     });

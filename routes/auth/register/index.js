@@ -39,7 +39,6 @@ module.exports = async function (fastify, opts) {
                 merchantId,
                 fullName,
                 phone,
-                merchantRole: 'Admin', // Default role
                 created_at: knex.fn.now(),
             })
             .returning('*');
