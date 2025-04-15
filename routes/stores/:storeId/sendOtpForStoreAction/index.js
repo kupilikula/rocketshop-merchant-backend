@@ -11,9 +11,9 @@ module.exports = async function (fastify, opts) {
         const { actionType } = request.body; // 'DEACTIVATE' or 'DELETE'
         const requestingMerchantId = request.user.merchantId;
 
-        if (!['DEACTIVATE', 'DELETE'].includes(actionType)) {
-            return reply.status(400).send({ error: 'Invalid action type' });
-        }
+        // if (!['ACTIVATE','DEACTIVATE', 'DELETE'].includes(actionType)) {
+        //     return reply.status(400).send({ error: 'Invalid action type' });
+        // }
 
         // Verify requesting merchant is Admin
         const merchant = await knex('merchantStores')
