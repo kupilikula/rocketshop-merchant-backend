@@ -2,8 +2,8 @@
 
 const knex = require("@database/knexInstance");
 const { v4: uuidv4 } = require('uuid');
-const { sendOtp } = require("@services/otpService"); // Existing SMS provider code
-const { generateOtp } = require("@utils/otpUtils");  // A function that returns 6-digit random OTP
+// const { sendOtp } = require("@services/otpService"); // Existing SMS provider code
+const { generateOtp } = require("../../../../utils/generateOtp");  // A function that returns 6-digit random OTP
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
