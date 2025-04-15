@@ -1,6 +1,7 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
+const generateOtp = require("../../../utils/generateOtp");
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
@@ -12,7 +13,7 @@ module.exports = async function (fastify, opts) {
 
 
         // Generate random 6 digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = generateOtp();
 
         // Store in otp_verification table
         await knex('otp_verification').insert({
