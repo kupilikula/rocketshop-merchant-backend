@@ -37,6 +37,7 @@ module.exports = async function (fastify, opts) {
                 storeDescription,
                 storeLogoImage: null,
                 storeTags: JSON.stringify(storeTags || []),
+                isActive: false,
                 created_at: knex.fn.now(),
             })
             .returning('*');

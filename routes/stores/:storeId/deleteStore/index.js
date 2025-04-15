@@ -35,6 +35,10 @@ module.exports = async function (fastify, opts) {
             return reply.status(404).send({ error: 'Store not found' });
         }
 
+        if (store.isActive) {
+            return reply.status(400).send({ error: 'Store is active. Please deactivate the store first.' });
+        }
+
         const expectedText = `Delete ${store.storeName}`;
 
         if (confirmationText !== expectedText) {
