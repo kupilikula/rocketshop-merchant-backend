@@ -3,7 +3,7 @@
 const knex = require("@database/knexInstance");
 
 module.exports = async function (fastify, opts) {
-    fastify.delete('/', async function (request, reply) {
+    fastify.post('/', async function (request, reply) {
         const { storeId } = request.params;
         const { confirmationText, phone, otp } = request.body;
         const requestingMerchantId = request.user.merchantId;
