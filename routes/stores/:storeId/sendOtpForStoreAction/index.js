@@ -30,7 +30,6 @@ module.exports = async function (fastify, opts) {
 
         // Insert into otp_verification table
         await knex('otp_verification').insert({
-            otpId: uuidv4(),
             phone: merchant.phone,
             otp,
             app: 'merchant',
