@@ -13,7 +13,8 @@ module.exports = async function (fastify, opts) {
             .where('merchantStores.merchantId', merchantId)
             .select(
                 'stores.*',
-                'merchantStores.merchantRole' // Add merchantRole from pivot table
+                'merchantStores.merchantRole', // Add merchantRole from pivot table
+                'merchantStores.canReceiveMessages'
             );
 
         return reply.send(stores);

@@ -2,7 +2,7 @@ const knex = require("@database/knexInstance");
 const { v4: uuidv4 } = require("uuid");
 
 module.exports = async function (fastify, opts) {
-    fastify.post("/", async (request, reply) => {
+    fastify.post("/:chatId", async (request, reply) => {
         const { chatId } = request.params;
         const { messageIds } = request.body; // Array of message IDs
 
@@ -11,6 +11,25 @@ module.exports = async function (fastify, opts) {
 
         try {
             console.log("req.user:", request.user);
+
+            // Fetch the chat to get storeId
+            const chat = await knex("chats").where({ chatId }).first();
+            if (!chat) {
+                return reply.status(404).send({ error: "Chat not found." });
+            }
+
+            // Verify merchant association and canReceiveMessages
+            const merchantStore = await knex("merchantStores")
+                .where({ merchantId: userId, storeId: chat.storeId })
+                .first();
+
+            if (!merchantStore) {
+                return reply.status(403).send({ error: "You are not authorized for this store." });
+            }
+
+            if (!merchantStore.canReceiveMessages) {
+                return reply.status(403).send({ error: "Messaging is disabled for your account in this store." });
+            }
 
             // Insert new read records into the message_reads table
             const readRecords = messageIds.map((messageId) => ({
@@ -21,11 +40,10 @@ module.exports = async function (fastify, opts) {
                 read_at: new Date(),
             }));
 
-            // Use an `insert ... on conflict` query to avoid duplicate entries
             await knex("message_reads")
                 .insert(readRecords)
-                .onConflict(["messageId", "readerId"]) // Ensure uniqueness for readerId, readerType, and messageId
-                .merge({ read_at: new Date() }); // Update the `read_at` timestamp for existing entries
+                .onConflict(["messageId", "readerId"])
+                .merge({ read_at: new Date() });
 
             reply.send({ success: true });
         } catch (error) {

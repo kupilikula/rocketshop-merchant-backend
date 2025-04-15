@@ -1,28 +1,31 @@
-const knex = require('@database/knexInstance'); // Adjust the path to your DB instance
+const knex = require('@database/knexInstance');
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
         try {
-            const { merchantId } = request.user; // Extract customerId or merchantId from authenticated user
-            const { storeId } = request.query; // Extract storeId from query params
+            const { merchantId } = request.user;
+            const { storeId } = request.query;
 
-            // Handle request for merchants
             if (merchantId) {
                 if (!storeId) {
-                    return reply.status(400).send({error: 'No storeId specified.'})
+                    return reply.status(400).send({ error: 'No storeId specified.' });
                 }
 
-                // Validate that the merchant is associated with the provided storeId
-                const store = await knex('merchantStores')
-                    .select('storeId')
+                // Fetch merchant store association
+                const merchantStore = await knex('merchantStores')
+                    .select('storeId', 'canReceiveMessages')
                     .where({ merchantId, storeId })
                     .first();
 
-                if (!store) {
+                if (!merchantStore) {
                     return reply.status(403).send({ error: 'You are not authorized to access chats for this store.' });
                 }
 
-                // Fetch all chats for the specified store
+                if (!merchantStore.canReceiveMessages) {
+                    return reply.status(403).send({ error: 'Messaging is disabled for your account in this store.' });
+                }
+
+                // Fetch chats
                 const chats = await knex('chats')
                     .select(
                         'chats.chatId',
@@ -45,7 +48,6 @@ module.exports = async function (fastify, opts) {
                 return reply.send(chats);
             }
 
-            // If neither customerId nor merchantId is provided
             return reply.status(400).send({ error: 'Invalid request: No merchantId found.' });
         } catch (error) {
             request.log.error(error);

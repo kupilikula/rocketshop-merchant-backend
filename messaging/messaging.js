@@ -39,64 +39,145 @@ function initMessaging(io, app) {
     // Handle WebSocket connections
     io.on("connection", (socket) => {
         app.log.info(`WebSocket connection established: ${socket.id} for user ${JSON.stringify(socket.user)}`);
+        const { merchantId, customerId } = socket.user;
+        const userId = merchantId || customerId;
+        const userType = merchantId ? "Merchant" : "Customer";
 
-        // Add the user and their socket to activeUsers
-        const userId = socket.user.storeId || socket.user.customerId; // Adjust based on your user structure
-        const userType = socket.user.storeId ? "Merchant" : "Customer";
-
-        // Add the user's socket to activeUsers
         if (!activeUsers.has(userId)) {
-            activeUsers.set(userId, new Set()); // Use a Set to store multiple sockets for the same user
+            activeUsers.set(userId, new Set());
         }
         activeUsers.get(userId).add(socket.id);
 
         app.log.info(`User ${userId} (${userType}) connected. Active sockets: ${[...activeUsers.get(userId)]}`);
+        socket.on("joinStore", async ({ storeId }) => {
+            if (!storeId || !merchantId) return;
 
-        // Join a chat room
-        socket.on("joinChat", ({ chatId, userId, userType }) => {
+            const association = await knex("merchantStores")
+                .where({ merchantId, storeId })
+                .first();
+
+            if (!association || !association.canReceiveMessages) {
+                return socket.emit("error", { error: "Unauthorized to join store chats." });
+            }
+
+            socket.join(`store_${storeId}`);
+            socket.join("global_notifications");
+            socket.join(`merchant_${merchantId}`);
+        });
+
+        socket.on("joinChat", async ({ chatId, userId, userType }) => {
             if (!chatId || !userId || !userType) {
                 app.log.error(`Missing parameters in joinChat: chatId=${chatId}, userId=${userId}, userType=${userType}`);
+                socket.emit("error", { error: "Missing parameters for joining chat." });
                 return;
             }
 
-            socket.join(chatId); // Join the room for this chatId
-            app.log.info(`User ${userId} (${userType}) joined chat ${chatId} with socket ID: ${socket.id}`);
+            try {
+                // Fetch chat info
+                const chat = await knex("chats")
+                    .select("storeId", "customerId")
+                    .where({ chatId })
+                    .first();
 
-            // Log current clients in the room
-            const clients = io.sockets.adapter.rooms.get(chatId) || new Set();
-            app.log.info(`Current clients in room ${chatId}: ${[...clients]}`);
+                if (!chat) {
+                    app.log.error(`Chat not found for chatId=${chatId}`);
+                    socket.emit("error", { error: "Chat not found." });
+                    return;
+                }
+
+                if (userType === "Merchant") {
+                    // Check if merchant belongs to the store and has canReceiveMessages=true
+                    const merchantStore = await knex("merchantStores")
+                        .where({ merchantId: userId, storeId: chat.storeId })
+                        .first();
+
+                    if (!merchantStore) {
+                        app.log.error(`Unauthorized: Merchant ${userId} does not belong to store ${chat.storeId}`);
+                        socket.emit("error", { error: "You are not authorized to access this chat." });
+                        return;
+                    }
+
+                    if (!merchantStore.canReceiveMessages) {
+                        app.log.error(`Forbidden: Merchant ${userId} has messaging disabled for store ${chat.storeId}`);
+                        socket.emit("error", { error: "Messaging is disabled for you in this store." });
+                        return;
+                    }
+                }
+
+                // All checks passed, join the chat room
+                socket.join(chatId);
+                app.log.info(`User ${userId} (${userType}) joined chat ${chatId} with socket ID: ${socket.id}`);
+
+                const clients = io.sockets.adapter.rooms.get(chatId) || new Set();
+                app.log.info(`Current clients in room ${chatId}: ${[...clients]}`);
+            } catch (error) {
+                app.log.error(`Error during joinChat: ${error.message}`);
+                socket.emit("error", { error: "Failed to join chat." });
+            }
         });
 
-        // Handle sending messages
         socket.on("sendMessage", async (messageData) => {
             const { chatId, messageId, senderId, senderType, message } = messageData;
-            console.log("sendMessage:", messageData);
+
+            if (!chatId || !senderId || !senderType || !message) {
+                app.log.error(`Missing parameters in sendMessage`);
+                socket.emit("error", { error: "Missing parameters for sending message." });
+                return;
+            }
+
             try {
-                app.log.info(`Sender socket ID: ${socket.id} sent a message`);
+                // Fetch chat info
+                const chat = await knex("chats")
+                    .select("storeId", "customerId")
+                    .where({ chatId })
+                    .first();
 
-                // Save the message to the database
+                if (!chat) {
+                    app.log.error(`Chat not found for chatId=${chatId}`);
+                    socket.emit("error", { error: "Chat not found." });
+                    return;
+                }
+
+                // Merchant authorization check
+                if (senderType === "Merchant") {
+                    const merchantStore = await knex("merchantStores")
+                        .where({ merchantId: senderId, storeId: chat.storeId })
+                        .first();
+
+                    if (!merchantStore) {
+                        app.log.error(`Unauthorized: Merchant ${senderId} does not belong to store ${chat.storeId}`);
+                        socket.emit("error", { error: "You are not authorized to send messages in this store." });
+                        return;
+                    }
+
+                    if (!merchantStore.canReceiveMessages) {
+                        app.log.error(`Forbidden: Messaging is disabled for Merchant ${senderId} in store ${chat.storeId}`);
+                        socket.emit("error", { error: "Messaging is disabled for you in this store." });
+                        return;
+                    }
+                }
+
+                // Save the message
                 const newMessage = await saveMessageToDatabase(chatId, messageId, senderId, senderType, message);
-                // Log all clients in the room
-                const clients = io.sockets.adapter.rooms.get(chatId);
-                app.log.info(`Clients in room ${chatId}: ${clients ? [...clients] : "No clients"}`);
 
-                // Broadcast the message to all clients in the room except the sender
+                // Broadcast to chat room
                 io.to(chatId).except(socket.id).emit("receiveMessage", newMessage);
 
-                // Determine the recipient's ID
+                // Notify the recipient via `newMessage` (global socket or non-chat screen)
                 const recipientId = await getRecipientId(chatId, senderId, senderType);
                 if (!recipientId) {
                     app.log.error(`Failed to identify recipient for chatId: ${chatId}`);
                     return;
                 }
+
                 // Notify all sockets of the recipient
                 const recipientSockets = activeUsers.get(recipientId);
                 console.log('recipientSockets for recipientId ', recipientId , ' : ', recipientSockets);
                 if (recipientSockets) {
-                    recipientSockets.forEach((socketId) => {
-                        const recipientSocket = io.sockets.sockets.get(socketId);
-                        if (recipientSocket) {
-                            recipientSocket.emit("newMessage", {
+                    recipientSockets.forEach((sockId) => {
+                        const targetSocket = io.sockets.sockets.get(sockId);
+                        if (targetSocket) {
+                            targetSocket.emit("newMessage", {
                                 chatId,
                                 senderId,
                                 senderType,
@@ -104,20 +185,18 @@ function initMessaging(io, app) {
                                 messageId: newMessage.messageId,
                                 created_at: newMessage.created_at,
                             });
-                            app.log.info(
-                                `Sent newMessage event to socket ${socketId} for recipient ${recipientId}`
-                            );
+                            app.log.info(`Sent newMessage to socket ${sockId} for recipient ${recipientId}`);
                         }
                     });
                 } else {
                     app.log.info(`Recipient ${recipientId} has no active sockets.`);
                 }
 
-                // Optionally log the message sent
-                app.log.info(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
+                app.log.info(`Message sent in chat ${chatId} by ${senderId}`);
+
             } catch (error) {
-                app.log.error(`Error saving message: ${error.message}`);
-                socket.emit("error", { error: "Message could not be sent" });
+                app.log.error(`Error sending message: ${error.message}`);
+                socket.emit("error", { error: "Message could not be sent." });
             }
         });
 
@@ -167,19 +246,10 @@ function initMessaging(io, app) {
     });
 }
 
-/**
- * Helper function to save a message to the database
- */
 async function saveMessageToDatabase(chatId, messageId, senderId, senderType, messageContent) {
-    const [newMessage] = await knex('messages')
-        .insert({
-            messageId,
-            chatId,
-            senderId,
-            senderType,
-            message: messageContent,
-        })
-        .returning(['messageId', 'chatId', 'senderId', 'senderType', 'message', 'created_at']);
+    const [newMessage] = await knex("messages")
+        .insert({ messageId, chatId, senderId, senderType, message: messageContent })
+        .returning(["messageId", "chatId", "senderId", "senderType", "message", "created_at"]);
     return newMessage;
 }
 
