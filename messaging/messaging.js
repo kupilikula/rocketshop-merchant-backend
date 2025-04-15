@@ -14,6 +14,8 @@ function initMessaging(io, app) {
         try {
             // Extract the token from the `auth` object
             const token = socket.handshake.auth.accessToken;
+            const storeId = socket.handshake.auth.storeId;
+
             if (!token) {
                 app.log.error("No token provided for WebSocket connection");
                 return next(new Error("Unauthorized"));
@@ -26,8 +28,23 @@ function initMessaging(io, app) {
                 return next(new Error("Unauthorized"));
             }
 
+            // For merchant users, verify storeId is provided and valid
+            if (user.merchantId && !storeId) {
+                app.log.error("No storeId provided for merchant WebSocket connection");
+                return next(new Error("Unauthorized"));
+            }
+
+
             // Attach the user object to the socket for later use
-            socket.user = user;
+            if (user.merchantId) {
+                socket.user = {
+                    ...user,
+                    storeId: storeId // Add storeId from auth
+                };
+            } else {
+                socket.user = user;
+            }
+
             app.log.info(`WebSocket connection authenticated: ${socket.id} for user ${JSON.stringify(user)}`);
             next(); // Proceed with the connection
         } catch (error) {
