@@ -4,11 +4,11 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         const { storeId } = request.params;
-        const { phone, fullName, merchantRole } = request.body;
+        const { phone, fullName, merchantRole, canReceiveMessages } = request.body;
         const requestingMerchantId = request.user.merchantId;
 
-        if (!phone || !merchantRole) {
-            return reply.status(400).send({ error: "Missing phone or merchantRole" });
+        if (!phone || !merchantRole || !canReceiveMessages || !fullName) {
+            return reply.status(400).send({ error: "Missing phone, merchantRole, fullName or canReceiveMessages" });
         }
 
         if (!['Admin', 'Manager', 'Staff'].includes(merchantRole)) {
@@ -42,6 +42,7 @@ module.exports = async function (fastify, opts) {
                     merchantId,
                     fullName,
                     phone,
+                    canReceiveMessages,
                     created_at: knex.fn.now()
                 })
                 .returning('*')
@@ -62,6 +63,7 @@ module.exports = async function (fastify, opts) {
             storeId,
             merchantId: merchant.merchantId,
             merchantRole,
+            canReceiveMessages,
             created_at: knex.fn.now()
         });
 
