@@ -1,7 +1,7 @@
 const knex = require("@database/knexInstance");
 
 module.exports = async function (fastify, opts) {
-    fastify.get('/:chatId', async (request, reply) => {
+    fastify.get('/', async (request, reply) => {
         const { chatId } = request.params;
         const { merchantId } = request.user;
 

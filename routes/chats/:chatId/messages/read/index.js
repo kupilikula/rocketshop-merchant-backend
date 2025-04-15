@@ -2,7 +2,7 @@ const knex = require("@database/knexInstance");
 const { v4: uuidv4 } = require("uuid");
 
 module.exports = async function (fastify, opts) {
-    fastify.post("/:chatId", async (request, reply) => {
+    fastify.post("/", async (request, reply) => {
         const { chatId } = request.params;
         const { messageIds } = request.body; // Array of message IDs
 
