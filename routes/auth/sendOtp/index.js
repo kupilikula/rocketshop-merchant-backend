@@ -1,7 +1,7 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
-const generateOtp = require("../../../utils/generateOtp");
+const {generateOtp} = require("../../../utils/generateOtp");
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
