@@ -10,11 +10,11 @@ const activeUsers = new Map();
  */
 function initMessaging(io, app) {
     // Middleware for token validation on all events
-    io.use((socket, next) => {
+    io.use( async (socket, next) => {
         try {
             // Extract the token from the `auth` object
             const token = socket.handshake.auth.accessToken;
-            const storeId = socket.handshake.auth.storeId;
+            const storeId = socket.handshake.auth.storeId; // undefined for customers
 
             if (!token) {
                 app.log.error("No token provided for WebSocket connection");
@@ -28,22 +28,29 @@ function initMessaging(io, app) {
                 return next(new Error("Unauthorized"));
             }
 
-            // For merchant users, verify storeId is provided and valid
-            if (user.merchantId && !storeId) {
-                app.log.error("No storeId provided for merchant WebSocket connection");
-                return next(new Error("Unauthorized"));
-            }
+
 
 
             // Attach the user object to the socket for later use
             if (user.merchantId) {
+                // For merchant users, verify storeId is provided and valid
+                if (!storeId) {
+                    app.log.error("No storeId provided for merchant WebSocket connection");
+                    return next(new Error("Unauthorized"));
+                }
+
                 socket.user = {
                     ...user,
                     storeId: storeId // Add storeId from auth
                 };
+                // Store the permission in the socket for later use
+                socket.canReceiveMessages = await canMerchantReceiveMessages(user.merchantId, storeId);
+
             } else {
                 socket.user = user;
             }
+
+
 
             app.log.info(`WebSocket connection authenticated: ${socket.id} for user ${JSON.stringify(user)}`);
             next(); // Proceed with the connection
@@ -56,6 +63,19 @@ function initMessaging(io, app) {
     // Handle WebSocket connections
     io.on("connection", (socket) => {
         app.log.info(`WebSocket connection established: ${socket.id} for user ${JSON.stringify(socket.user)}`);
+
+        // Helper function to check messaging permissions
+        const messagingAllowed = () => {
+            if (socket.user.merchantId && socket.canReceiveMessages === false) {
+                socket.emit('error', {
+                    error: 'Messaging is disabled for this store',
+                    code: 'MESSAGING_DISABLED'
+                });
+                return false;
+            }
+            return true;
+        };
+
 
         // Add the user and their socket to activeUsers
         const userId = socket.user.storeId || socket.user.customerId; // Adjust based on your user structure
@@ -71,6 +91,10 @@ function initMessaging(io, app) {
 
         // Join a chat room
         socket.on("joinChat", ({ chatId, userId, userType }) => {
+            if (!messagingAllowed()) {
+                return;
+            }
+
             if (!chatId || !userId || !userType) {
                 app.log.error(`Missing parameters in joinChat: chatId=${chatId}, userId=${userId}, userType=${userType}`);
                 return;
@@ -86,6 +110,9 @@ function initMessaging(io, app) {
 
         // Handle sending messages
         socket.on("sendMessage", async (messageData) => {
+            if (!messagingAllowed()) {
+                return;
+            }
             const { chatId, messageId, senderId, senderType, message } = messageData;
             console.log("sendMessage:", messageData);
             try {
@@ -139,6 +166,9 @@ function initMessaging(io, app) {
         });
 
         socket.on("messagesRead", ({ chatId, messageIds, readerId }) => {
+            if (!messagingAllowed()) {
+                return;
+            }
             console.log("messagesRead event received for chatId:", chatId, ", messageIds:", messageIds, ", readerId:", readerId);
 
             if (!chatId || !messageIds || !readerId) {
@@ -159,11 +189,17 @@ function initMessaging(io, app) {
         });
 
         socket.on("typing", ({ chatId, senderId }) => {
+            if (!messagingAllowed()) {
+                return;
+            }
             console.log("typing, senderId:", senderId);
             io.to(chatId).except(socket.id).emit("typing", { senderId });
         });
 
         socket.on("stopTyping", ({ chatId, senderId }) => {
+            if (!messagingAllowed()) {
+                return;
+            }
             console.log("stop typing, senderId:", senderId);
             io.to(chatId).except(socket.id).emit("stopTyping", { senderId });
         });
@@ -227,5 +263,24 @@ async function getRecipientId(chatId, senderId, senderType) {
         return null;
     }
 }
+
+// New helper function to check if merchant can receive messages
+async function canMerchantReceiveMessages(merchantId, storeId) {
+    try {
+        const store = await knex('merchantStores')
+            .select('canReceiveMessages')
+            .where({
+                merchantId: merchantId,
+                storeId: storeId
+            })
+            .first();
+
+        return store?.canReceiveMessages ?? false;
+    } catch (error) {
+        console.error('Error checking merchant message permissions:', error);
+        return false;
+    }
+}
+
 
 module.exports = initMessaging;
