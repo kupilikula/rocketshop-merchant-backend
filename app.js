@@ -22,8 +22,8 @@ module.exports = async function (fastify, opts) {
   fastify.addHook('onRequest', async (request, reply) => {
     const publicRoutes = [
         '/invite',
-        '/auth/sendOtp',
-        '/auth/verifyOtp',
+        '/sendOtp',
+        '/verifyOtp',
       '/auth/merchantLogin',
         '/auth/register',
       '/auth/refreshToken',
@@ -31,13 +31,12 @@ module.exports = async function (fastify, opts) {
     ];
     const routePath = request.raw.url.split('?')[0]; // Get the path without query parameters
     console.log('routePath:', routePath);
-    // Check if the current route is public
-    if (publicRoutes.includes(routePath)) {
-      console.log('skipping auth auth');
-      return; // Skip authentication for public routes
-    }
+
+    const isPublic = publicRoutes.includes(routePath);
     const authHeader = request.headers.authorization;
+
     if (!authHeader) {
+      if (isPublic) return; // Allow unauthenticated access to public routes
       return reply.status(401).send({ error: 'Unauthorized: Missing token' });
     }
 
@@ -47,7 +46,12 @@ module.exports = async function (fastify, opts) {
       console.log('jwt user:', user);
       request.user = user; // Attach user to request object
     } catch (error) {
-      return reply.status(401).send({ error: 'Unauthorized: Invalid token' });
+      if (isPublic) {
+        console.log('Invalid JWT on public route, continuing anonymously');
+        return;
+      } else {
+        return reply.status(401).send({ error: 'Unauthorized: Invalid token' });
+      }
     }
   });
 
