@@ -139,7 +139,7 @@ module.exports = async function (fastify, opts) {
             .select(
                 'customers.customerId',
                 'customers.fullName',
-                knex.raw('SUM(orders.orderTotal) AS "totalSpent"')
+                knex.raw('SUM(orders."orderTotal") AS "totalSpent"')
             )
             .orderBy('totalSpent', 'desc')
             .limit(5);
