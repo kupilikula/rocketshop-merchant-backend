@@ -115,15 +115,15 @@ module.exports = async function (fastify, opts) {
         };
 
         // Top Products (by total orderTotal)
-        const topProducts = await knex('orderItems')
-            .join('products', 'orderItems.productId', 'products.productId')
-            .join('orders', 'orderItems.orderId', 'orders.orderId')
+        const topProducts = await knex('order_items')
+            .join('products', 'order_items.productId', 'products.productId')
+            .join('orders', 'order_items.orderId', 'orders.orderId')
             .where('orders.storeId', storeId)
             .andWhere('orders.orderStatus', 'in', completedStatuses)
             .groupBy('products.productId', 'products.productName')
             .select('products.productId', 'products.productName')
-            .sum('orderItems.quantity as totalQuantity')
-            .sum('orderItems.total as totalSales')
+            .sum('order_items.quantity as totalQuantity')
+            .sum('order_items.total as totalSales')
             .orderBy('totalSales', 'desc')
             .limit(5);
 
