@@ -7,7 +7,7 @@ const { getCompletedOrderStatuses } = require("../../../../utils/orderStatusList
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async function (request, reply) {
-        const { storeId } = request.user;
+        const { storeId } = request.params;
         if (!storeId) return reply.status(400).send({ error: "Missing storeId" });
 
         const completedStatuses = getCompletedOrderStatuses();
