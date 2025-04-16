@@ -119,11 +119,14 @@ module.exports = async function (fastify, opts) {
             .join('products', 'order_items.productId', 'products.productId')
             .join('orders', 'order_items.orderId', 'orders.orderId')
             .where('orders.storeId', storeId)
-            .andWhere('orders.orderStatus', 'in', completedStatuses)
+            .whereIn('orders.orderStatus', completedStatuses)
             .groupBy('products.productId', 'products.productName')
-            .select('products.productId', 'products.productName')
-            .sum('order_items.quantity as totalQuantity')
-            .sum('order_items.total as totalSales')
+            .select(
+                'products.productId',
+                'products.productName',
+                knex.raw('SUM(order_items.quantity) AS "totalQuantity"'),
+                knex.raw('SUM(order_items.price * order_items.quantity) AS "totalSales"')
+            )
             .orderBy('totalSales', 'desc')
             .limit(5);
 
@@ -131,10 +134,13 @@ module.exports = async function (fastify, opts) {
         const topCustomers = await knex('orders')
             .join('customers', 'orders.customerId', 'customers.customerId')
             .where('orders.storeId', storeId)
-            .andWhere('orders.orderStatus', 'in', completedStatuses)
+            .whereIn('orders.orderStatus', completedStatuses)
             .groupBy('customers.customerId', 'customers.fullName')
-            .select('customers.customerId', 'customers.fullName')
-            .sum('orders.orderTotal as totalSpent')
+            .select(
+                'customers.customerId',
+                'customers.fullName',
+                knex.raw('SUM(orders.orderTotal) AS "totalSpent"')
+            )
             .orderBy('totalSpent', 'desc')
             .limit(5);
 
