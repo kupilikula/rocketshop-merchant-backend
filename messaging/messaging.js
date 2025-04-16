@@ -120,12 +120,28 @@ function initMessaging(io, app) {
 
                 // Save the message to the database
                 const newMessage = await saveMessageToDatabase(chatId, messageId, senderId, senderType, message);
-                // Log all clients in the room
-                const clients = io.sockets.adapter.rooms.get(chatId);
-                app.log.info(`Clients in room ${chatId}: ${clients ? [...clients] : "No clients"}`);
 
-                // Broadcast the message to all clients in the room except the sender
-                io.to(chatId).except(socket.id).emit("receiveMessage", newMessage);
+                // Get all sockets in the chat room
+                const roomSockets = await io.in(chatId).fetchSockets();
+
+                // Send message to each socket in the room after checking permissions
+                for (const recipientSocket of roomSockets) {
+                    // Skip the sender's socket
+                    if (recipientSocket.id === socket.id) continue;
+
+                    // If recipient is a merchant, check their messaging permissions
+                    if (recipientSocket.user?.merchantId) {
+                        // Skip if merchant has messaging disabled
+                        if (!recipientSocket.canReceiveMessages) {
+                            app.log.info(`Skipping message delivery to merchant ${recipientSocket.user.merchantId} (messaging disabled)`);
+                            continue;
+                        }
+                    }
+
+                    // Send message to allowed recipient
+                    recipientSocket.emit("receiveMessage", newMessage);
+                }
+
 
                 // Determine the recipient's ID
                 const recipientId = await getRecipientId(chatId, senderId, senderType);
@@ -140,17 +156,21 @@ function initMessaging(io, app) {
                     recipientSockets.forEach((socketId) => {
                         const recipientSocket = io.sockets.sockets.get(socketId);
                         if (recipientSocket) {
-                            recipientSocket.emit("newMessage", {
-                                chatId,
-                                senderId,
-                                senderType,
-                                message: newMessage.message,
-                                messageId: newMessage.messageId,
-                                created_at: newMessage.created_at,
-                            });
-                            app.log.info(
-                                `Sent newMessage event to socket ${socketId} for recipient ${recipientId}`
-                            );
+                            if (recipientSocket.canReceiveMessages) {
+                                recipientSocket.emit("newMessage", {
+                                    chatId,
+                                    senderId,
+                                    senderType,
+                                    message: newMessage.message,
+                                    messageId: newMessage.messageId,
+                                    created_at: newMessage.created_at,
+                                });
+                                app.log.info(
+                                    `Sent newMessage event to socket ${socketId} for recipient ${recipientId}`
+                                );
+                            } else {
+                                app.log.info(`Skipping notification to merchant ${recipientSocket.user.merchantId} (messaging disabled)`);
+                            }
                         }
                     });
                 } else {
