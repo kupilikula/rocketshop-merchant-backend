@@ -114,34 +114,41 @@ module.exports = async function (fastify, opts) {
             }
         };
 
-        // Top Products (by total orderTotal)
-        const topProducts = await knex('order_items')
-            .join('products', 'order_items.productId', 'products.productId')
-            .join('orders', 'order_items.orderId', 'orders.orderId')
-            .where('orders.storeId', storeId)
-            .whereIn('orders.orderStatus', completedStatuses)
-            .groupBy('products.productId', 'products.productName')
-            .select(
-                'products.productId',
-                'products.productName',
-                knex.raw('SUM(order_items.quantity) AS "totalQuantity"'),
-                knex.raw('SUM(order_items.price * order_items.quantity) AS "totalSales"')
+        const topProducts = await knex
+            .select('p.*', 't.totalQuantity', 't.totalSales')
+            .from('products as p')
+            .join(
+                knex('order_items as oi')
+                    .join('orders as o', 'oi.orderId', 'o.orderId')
+                    .where('o.storeId', storeId)
+                    .whereIn('o.orderStatus', completedStatuses)
+                    .groupBy('oi.productId')
+                    .select('oi.productId')
+                    .sum('oi.quantity as totalQuantity')
+                    .sum(knex.raw('oi.price * oi.quantity')) // totalSales = price × quantity
+                    .as('t'),
+                'p.productId',
+                't.productId'
             )
-            .orderBy('totalSales', 'desc')
+            .orderBy('t.totalSales', 'desc')
             .limit(5);
 
         // Top Customers (by total spend)
-        const topCustomers = await knex('orders')
-            .join('customers', 'orders.customerId', 'customers.customerId')
-            .where('orders.storeId', storeId)
-            .whereIn('orders.orderStatus', completedStatuses)
-            .groupBy('customers.customerId', 'customers.fullName')
-            .select(
-                'customers.customerId',
-                'customers.fullName',
-                knex.raw('SUM(orders."orderTotal") AS "totalSpent"')
+        const topCustomers = await knex
+            .select('c.*', 't.totalSpent')
+            .from('customers as c')
+            .join(
+                knex('orders as o')
+                    .where('o.storeId', storeId)
+                    .whereIn('o.orderStatus', completedStatuses)
+                    .groupBy('o.customerId')
+                    .select('o.customerId')
+                    .sum('o.orderTotal as totalSpent')
+                    .as('t'),
+                'c.customerId',
+                't.customerId'
             )
-            .orderBy('totalSpent', 'desc')
+            .orderBy('t.totalSpent', 'desc')
             .limit(5);
 
         return reply.send({
