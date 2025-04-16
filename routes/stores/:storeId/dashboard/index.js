@@ -23,11 +23,11 @@ module.exports = async function (fastify, opts) {
         };
 
         // Product inventory stats
-        const productCounts = await knex('products')
+        const productCounts = await knex("products")
             .where({ storeId })
-            .count('productId as total')
-            .count(knex.raw("CASE WHEN isActive THEN 1 END as active"))
-            .count(knex.raw("CASE WHEN NOT isActive THEN 1 END as inactive"))
+            .count("productId as total")
+            .count(knex.raw(`CASE WHEN "isActive" THEN 1 END`)).as("active")
+            .count(knex.raw(`CASE WHEN NOT "isActive" THEN 1 END`)).as("inactive")
             .first();
 
         // Check if store has any products
