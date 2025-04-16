@@ -113,6 +113,7 @@ exports.up = async function (knex) {
         table.increments('otpId').primary();
         table.string('phone', 15).notNullable().index(); // E.164 international format recommended
         table.string('otp', 10).notNullable();
+        table.string('context', 50).notNullable();
         table.enum('app', ['marketplace', 'merchant']).notNullable();
         table.boolean('isVerified').defaultTo(false);
         table.integer('attemptCount').defaultTo(0);
