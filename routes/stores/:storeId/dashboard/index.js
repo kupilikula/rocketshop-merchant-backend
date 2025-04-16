@@ -125,14 +125,13 @@ module.exports = async function (fastify, opts) {
                     .groupBy('oi.productId')
                     .select('oi.productId')
                     .sum('oi.quantity as totalQuantity')
-                    .sum(knex.raw('oi.price * oi.quantity')).as('totalSales') // ✅ fix here
+                    .select(knex.raw('SUM(oi.price * oi.quantity) as "totalSales"')) // ✅ Fixed alias
                     .as('t'),
                 'p.productId',
                 't.productId'
             )
             .orderBy('t.totalSales', 'desc')
             .limit(5);
-
         // Top Customers (by total spend)
         const topCustomers = await knex
             .select('c.*', 't.totalSpent', 't.orderCount')
