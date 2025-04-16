@@ -39,6 +39,10 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: 'OTP has expired' });
         }
 
+        // Clear all tokens for this context and app and phone
+        await knex('otp_verification').where({ phone, app: 'merchant', context: 'AUTH_LOGIN' }).del();
+
+
         // Create new merchant
         const merchantId = uuidv4();
 
