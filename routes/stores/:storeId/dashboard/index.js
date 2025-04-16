@@ -125,7 +125,7 @@ module.exports = async function (fastify, opts) {
                     .groupBy('oi.productId')
                     .select('oi.productId')
                     .sum('oi.quantity as totalQuantity')
-                    .sum(knex.raw('oi.price * oi.quantity')) // totalSales = price × quantity
+                    .sum(knex.raw('oi.price * oi.quantity')).as('totalSales') // ✅ fix here
                     .as('t'),
                 'p.productId',
                 't.productId'
@@ -135,7 +135,7 @@ module.exports = async function (fastify, opts) {
 
         // Top Customers (by total spend)
         const topCustomers = await knex
-            .select('c.*', 't.totalSpent')
+            .select('c.*', 't.totalSpent', 't.orderCount')
             .from('customers as c')
             .join(
                 knex('orders as o')
@@ -143,7 +143,8 @@ module.exports = async function (fastify, opts) {
                     .whereIn('o.orderStatus', completedStatuses)
                     .groupBy('o.customerId')
                     .select('o.customerId')
-                    .sum('o.orderTotal as totalSpent')
+                    .sum({ totalSpent: 'o.orderTotal' })
+                    .count({ orderCount: 'o.orderId' }) // ✅ Count orders per customer
                     .as('t'),
                 'c.customerId',
                 't.customerId'
