@@ -47,6 +47,32 @@ module.exports = async function (fastify, opts) {
             request.body.phone = merchant.phone;
         }
 
+        if (context === 'UPDATE_PHONE') {
+            const requestingMerchantId = request.user?.merchantId;
+
+            if (!requestingMerchantId) {
+                return reply.status(401).send({ error: 'Unauthorized' });
+            }
+
+            const existingMerchant = await knex('merchants')
+                .where({ phone })
+                .andWhereNot({ merchantId: requestingMerchantId })
+                .first();
+
+            if (existingMerchant) {
+                return reply.status(400).send({ error: 'Phone number already in use by another account.' });
+            }
+
+            // Optional: prevent sending OTP if phone is unchanged
+            const selfMerchant = await knex('merchants')
+                .where({ merchantId: requestingMerchantId })
+                .first();
+
+            if (selfMerchant?.phone === phone) {
+                return reply.status(400).send({ error: 'Phone number is already your current number.' });
+            }
+        }
+
         // Generate 6-digit OTP
         const otp = generateOtp();
 
