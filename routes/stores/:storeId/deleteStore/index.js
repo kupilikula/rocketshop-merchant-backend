@@ -18,12 +18,12 @@ const BUCKET_NAME = 'rocketshop-media';
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
         const { storeId } = request.params;
-        const { confirmationText, phone, otp } = request.body;
+        const { phone, otp } = request.body;
         const requestingMerchantId = request.user.merchantId;
 
         // 1. Verify OTP
         const latestOtp = await knex('otp_verification')
-            .where({ phone, app: 'merchant' })
+            .where({ phone, context: "DELETE_STORE" ,app: 'merchant' })
             .orderBy('created_at', 'desc')
             .first();
 
@@ -51,11 +51,6 @@ module.exports = async function (fastify, opts) {
 
         if (store.isActive) {
             return reply.status(400).send({ error: 'Store is active. Please deactivate the store first.' });
-        }
-
-        const expectedText = `Delete ${store.storeName}`;
-        if (confirmationText !== expectedText) {
-            return reply.status(400).send({ error: `Confirmation text mismatch. Please type exactly: ${expectedText}` });
         }
 
         // 4. Delete files from DigitalOcean Spaces (S3-compatible)

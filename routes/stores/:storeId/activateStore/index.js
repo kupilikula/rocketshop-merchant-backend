@@ -9,7 +9,7 @@ module.exports = async function (fastify, opts) {
         const { phone, otp } = request.body;
 
         const latestOtp = await knex('otp_verification')
-            .where({ phone, app: 'merchant' })
+            .where({ phone, app: 'merchant', context: "ACTIVATE_STORE" })
             .orderBy('created_at', 'desc')
             .first();
 
