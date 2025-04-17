@@ -224,6 +224,12 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable("customer_carts", (table) => {
+        table.uuid("customerId").primary().references("customerId").inTable("customers").onDelete("CASCADE");
+        table.jsonb("cartData").notNullable();
+        table.timestamp("updated_at").defaultTo(knex.fn.now());
+    });
+
     // Create `offers` table
     await knex.schema.createTable('offers', (table) => {
         table.uuid('offerId').primary();
