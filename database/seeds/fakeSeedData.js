@@ -216,7 +216,7 @@ exports.seed = async function (knex) {
             customerHandle: faker.internet.username(), // Random customer handle
             fullName: faker.person.fullName(),
             email: faker.internet.email(),
-            phone: faker.phone.number(),
+            phone: faker.phone.number({ style: 'international' }).slice(1),
             created_at,
             updated_at,
         };
@@ -306,7 +306,7 @@ exports.seed = async function (knex) {
                 customerId: customer.customerId,
                 type: 'OTHER',
                 fullName: faker.person.fullName(),
-                phone: faker.phone.number(),
+                phone: faker.phone.number({ style: 'international' }).slice(1),
                 isDefaultRecipient: false,
                 created_at,
                 updated_at,
