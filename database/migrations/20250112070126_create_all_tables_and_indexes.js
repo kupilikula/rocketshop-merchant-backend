@@ -18,6 +18,8 @@ exports.up = async function (knex) {
         table.string('storeHandle').unique().notNullable(); // Add storeHandle column, must be unique
         table.integer('followerCount').defaultTo(0); // Add followerCount column with a default value of 0
         table.jsonb("storeTags").defaultTo("[]");
+        table.decimal('rating').defaultTo(0);
+        table.integer('numberOfRatings').notNullable().defaultTo(0);
         table.boolean("isActive").defaultTo(false);
         table.timestamps(true, true);
     });
@@ -192,6 +194,17 @@ exports.up = async function (knex) {
         table.unique(["productId", "customerId"]); // Prevent duplicate reviews
     });
 
+    await knex.schema.createTable("store_reviews", function (table) {
+        table.uuid("reviewId").primary();
+        table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
+        table.uuid("customerId").notNullable().references("customerId").inTable("customers").onDelete("CASCADE");
+        table.integer("rating").notNullable().checkBetween([1, 5]); // 1 to 5
+        table.text("review").nullable(); // Optional review text
+        table.boolean("isVisible").defaultTo(true); // For moderation
+        table.timestamps(true, true);
+        table.unique(["storeId", "customerId"]); // Prevent duplicate reviews
+    });
+
     // Create `orders` table
     await knex.schema.createTable("orders", function (table) {
         table.uuid("orderId").primary();
@@ -355,6 +368,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("order_status_history");
     await knex.schema.dropTableIfExists("orders");
     await knex.schema.dropTableIfExists("product_reviews");
+    await knex.schema.dropTableIfExists("store_reviews");
     await knex.schema.dropTableIfExists("customer_followed_stores");
     await knex.schema.dropTableIfExists("recipientAddresses");
     await knex.schema.dropTableIfExists("recipients");

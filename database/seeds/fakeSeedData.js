@@ -165,8 +165,8 @@ exports.seed = async function (knex) {
                 ),
                 gstRate: faker.helpers.arrayElement([0, 5, 12, 18, 28]),
                 gstInclusive: faker.datatype.boolean(),
-                rating: faker.number.float({ min: 0, max: 5, fractionDigits: 1 }),
-                numberOfRatings: faker.number.int({ min: 0, max: 500 }),
+                rating: 0,
+                numberOfRatings: 0,
                 enableStockTracking: faker.datatype.boolean(),
                 created_at,
                 updated_at,
@@ -524,6 +524,61 @@ exports.seed = async function (knex) {
 
     console.log("Product ratings updated.");
 
+    console.log("Seeding store reviews...");
+
+    const storeReviews = [];
+    const storeRatingsMap = {}; // To track ratings per store
+    const reviewedStorePairs = new Set(); // To avoid duplicate (customerId, storeId) reviews
+
+    for (const order of orders) {
+        const completedStatuses = orderStatusList.slice(orderStatusList.indexOf("Shipped"));
+        if (!completedStatuses.includes(order.orderStatus)) continue;
+
+        // Each order is for one store, so we can directly use the storeId
+        const reviewKey = `${order.customerId}:${order.storeId}`;
+
+        if (reviewedStorePairs.has(reviewKey)) continue; // Skip if customer already reviewed this store
+        reviewedStorePairs.add(reviewKey);
+
+        // 70% chance this user rates this store
+        if (faker.datatype.boolean({ probability: 0.7 })) {
+            const rating = faker.number.int({ min: 1, max: 5 });
+            const hasReviewText = faker.datatype.boolean({ probability: 0.6 });
+
+            storeReviews.push({
+                reviewId: faker.string.uuid(),
+                storeId: order.storeId,
+                customerId: order.customerId,
+                rating,
+                review: hasReviewText ? faker.lorem.sentences(faker.number.int({ min: 1, max: 3 })) : null,
+                isVisible: true,
+                created_at: faker.date.recent(90),
+                updated_at: new Date(),
+            });
+
+            if (!storeRatingsMap[order.storeId]) {
+                storeRatingsMap[order.storeId] = [];
+            }
+            storeRatingsMap[order.storeId].push(rating);
+        }
+    }
+
+    await knex("store_reviews").insert(storeReviews);
+    console.log(`Inserted ${storeReviews.length} unique store reviews.`);
+
+// Update store rating aggregates
+    for (const [storeId, ratings] of Object.entries(storeRatingsMap)) {
+        const total = ratings.reduce((sum, r) => sum + r, 0);
+        const avg = (total / ratings.length).toFixed(2);
+        await knex("stores")
+            .where({ storeId })
+            .update({
+                rating: avg,
+                numberOfRatings: ratings.length,
+            });
+    }
+
+    console.log("Store ratings updated.");
 
     // Seed offers
     const offers = [];
