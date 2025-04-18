@@ -257,7 +257,7 @@ exports.seed = async function (knex) {
         recipientAddressesMap[customer.customerId] = assignedAddresses.map((a) => a.addressId);
     }
 
-    console.log("Filtered delivery addresses:", deliveryAddresses);
+    // console.log("Filtered delivery addresses:", deliveryAddresses);
 
 // Insert delivery addresses
     await knex("deliveryAddresses").insert(deliveryAddresses);
