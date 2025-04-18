@@ -53,6 +53,7 @@ exports.seed = async function (knex) {
             )),
             storeHandle: faker.internet.username(), // Random store handle
             followerCount: 0, // Default to 0, will be updated after customer_followed_stores seeding
+            isActive: faker.datatype.boolean({probability: 0.9}),
             created_at,
             updated_at,
         };
