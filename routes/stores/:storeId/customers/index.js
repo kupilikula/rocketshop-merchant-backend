@@ -24,7 +24,7 @@ module.exports = async function (fastify, opts) {
       console.log('customerOrders:', customerOrders);
 
       if (!customerOrders.length) {
-        return reply.status(404).send({ error: 'No customers found for this store.' });
+        return reply.status(200).send([]);
       }
 
       // Group orders by customerId
