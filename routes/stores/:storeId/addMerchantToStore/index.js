@@ -42,7 +42,6 @@ module.exports = async function (fastify, opts) {
                     merchantId,
                     fullName,
                     phone,
-                    canReceiveMessages,
                     created_at: knex.fn.now()
                 })
                 .returning('*')
