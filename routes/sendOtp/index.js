@@ -4,7 +4,8 @@ const knex = require("@database/knexInstance");
 const { generateOtp } = require("../../utils/generateOtp");
 const { OTP_PUBLIC_CONTEXTS, OTP_PRIVATE_CONTEXTS } = require("../../utils/OtpContexts");
 const {getOtpText} = require("../../utils/getOtpText");
-const {sendSMS} = require("../../services/SMSService");
+const smsService = require("../../services/SMSService"); // Import the class instead
+
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
@@ -92,7 +93,7 @@ module.exports = async function (fastify, opts) {
         // Generate OTP message and send SMS
         try {
             const message = getOtpText(otp);
-            await sendSMS(request.body.phone, message);
+            await smsService.sendSMS(request.body.phone, message);
         } catch (error) {
             console.error('Failed to send OTP SMS:', error);
             // Optionally, you might want to delete the OTP record if SMS fails
