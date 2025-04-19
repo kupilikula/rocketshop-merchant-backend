@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Buffer } = require('buffer');
 
 class SMSService {
