@@ -6,7 +6,7 @@ class SMSService {
         this.authToken = process.env.SMS_COUNTRY_AUTH_TOKEN;
         this.senderId = process.env.SMS_COUNTRY_SENDER_ID;
         const baseUrl = 'https://restapi.smscountry.com/v0.1/Accounts';
-        this.apiEndpoint = `${baseUrl}/${this.authKey}/SMSes/`;
+        this.apiEndpoint = `${baseUrl}/${process.env.SMS_COUNTRY_AUTH_KEY}/SMSes/`;
     }
 
     async sendSMS(phoneNumber, message) {
