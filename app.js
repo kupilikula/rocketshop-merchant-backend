@@ -47,7 +47,7 @@ module.exports = async function (fastify, opts) {
       request.user = user; // Attach user to request object
     } catch (error) {
       if (isPublic) {
-        console.log('Invalid JWT on public route, continuing anonymously');
+        console.log('No valid JWT on public route, continuing anonymously');
         return;
       } else {
         return reply.status(401).send({ error: 'Unauthorized: Invalid token' });

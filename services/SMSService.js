@@ -45,11 +45,6 @@ class SMSService {
             }
 
             console.log('SMS sent successfully', responseData);
-            // Validate the response format
-            if (!this.isValidSMSResponse(responseData)) {
-                throw new Error('Invalid response format from SMS API');
-            }
-
             // If Success is false, throw an error with the Message
             if (!responseData.Success) {
                 throw new Error(responseData.Message || 'SMS sending failed');
@@ -70,16 +65,6 @@ class SMSService {
             console.error('SMS sending failed:', error);
             throw new Error('Failed to send SMS: ' + error.message);
         }
-    }
-
-    isValidSMSResponse(response) {
-        return (
-            response &&
-            typeof response.ApiId === 'string' &&
-            typeof response.Success === 'boolean' &&
-            typeof response.Message === 'string' &&
-            typeof response.MessageUUID === 'string'
-        );
     }
 }
 
