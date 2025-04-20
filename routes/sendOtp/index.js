@@ -91,17 +91,17 @@ module.exports = async function (fastify, opts) {
         console.log(`Sending OTP ${otp} to phone ${request.body.phone} for context ${context}`);
 
         // Generate OTP message and send SMS
-        try {
-            const message = getOtpText(otp);
-            await smsService.sendSMS(request.body.phone, message);
-        } catch (error) {
-            console.error('Failed to send OTP SMS:', error);
-            // Optionally, you might want to delete the OTP record if SMS fails
-            await knex('otp_verification')
-                .where({ phone: request.body.phone, otp })
-                .delete();
-            return reply.status(500).send({ error: 'Failed to send OTP' });
-        }
+        // try {
+        //     const message = getOtpText(otp);
+        //     await smsService.sendSMS(request.body.phone, message);
+        // } catch (error) {
+        //     console.error('Failed to send OTP SMS:', error);
+        //     // Optionally, you might want to delete the OTP record if SMS fails
+        //     await knex('otp_verification')
+        //         .where({ phone: request.body.phone, otp })
+        //         .delete();
+        //     return reply.status(500).send({ error: 'Failed to send OTP' });
+        // }
 
 
         // Special response for login flow
