@@ -1,42 +1,94 @@
 const orderStatusList = [
-    "Order Created", // Order has been placed by the customer
-    "Payment Initiated", // Payment is not yet confirmed
-    "Payment Failed", // Payment has been successfully processed
-    "Payment Received", // Payment has been successfully processed
-    "Processing", // Order is being prepared
-    "Ready for Pickup", // For pickup orders, when ready at the store
-    "Awaiting Shipment", // Order is packed but not shipped
-    "Shipped", // Order has been dispatched
-    "Out for Delivery", // Order is out for delivery
-    "Delivered", // Order has been delivered
-    "On Hold", // Order is temporarily on hold
-    "Canceled", // Order has been canceled
-    "Refund Requested", // Customer has requested a refund
-    "Refund Processed", // Refund has been issued
-    "Failed", // Order failed (e.g., payment or processing issue)
-    "Returned", // Product has been returned by the customer
+    "Order Created",
+    "Payment Initiated",
+    "Payment Failed",
+    "Payment Received",
+    "Processing",
+    "Ready for Pickup",
+    "Awaiting Shipment",
+    "Shipped",
+    "Out for Delivery",
+    "Delivered",
+    "On Hold",
+    "Canceled",
+    "Refund Requested",
+    "Refund Processed",
+    "Failed",
+    "Returned",
 ];
 
-const getCompletedOrderStatuses = () => {
-    const shippedIndex = orderStatusList.indexOf("Shipped");
-    return orderStatusList.slice(shippedIndex); // All statuses from 'Shipped' onwards
-};
+// === Semantic Groups ===
 
-const getPaidOrderStatuses = () => {
-    const paidIndex = orderStatusList.indexOf("Payment Received");
-    return orderStatusList.slice(paidIndex); // All statuses from 'Payment Received' onward
-};
+const PENDING_STATUSES = [
+    "Order Created",
+    "Payment Initiated",
+];
 
-const getSalesEligibleOrderStatuses = () => {
-    const startIndex = orderStatusList.indexOf("Payment Received");
-    const exclude = new Set([
-        "Refund Requested",
-        "Refund Processed",
-        "Returned",
-    ]);
-    return orderStatusList
-        .slice(startIndex)
-        .filter((status) => !exclude.has(status));
-};
+const IN_PROGRESS_STATUSES = [
+    "Payment Received",
+    "Processing",
+    "Ready for Pickup",
+    "Awaiting Shipment",
+];
 
-module.exports = {orderStatusList, getCompletedOrderStatuses, getPaidOrderStatuses, getSalesEligibleOrderStatuses};
+const FULFILLED_STATUSES = [
+    "Shipped",
+    "Out for Delivery",
+    "Delivered",
+];
+
+const ON_HOLD_STATUSES = [
+    "On Hold",
+];
+
+const CANCELED_OR_FAILED_STATUSES = [
+    "Canceled",
+    "Payment Failed",
+    "Failed",
+];
+
+const REFUNDED_OR_RETURNED_STATUSES = [
+    "Refund Requested",
+    "Refund Processed",
+    "Returned",
+];
+
+// === Functions to expose ===
+
+const getPendingOrderStatuses = () => PENDING_STATUSES;
+
+const getInProgressOrderStatuses = () => IN_PROGRESS_STATUSES;
+
+const getFulfilledOrderStatuses = () => FULFILLED_STATUSES;
+
+const getOnHoldOrderStatuses = () => ON_HOLD_STATUSES;
+
+const getCanceledOrFailedOrderStatuses = () => CANCELED_OR_FAILED_STATUSES;
+
+const getRefundedOrReturnedOrderStatuses = () => REFUNDED_OR_RETURNED_STATUSES;
+
+const getSalesEligibleOrderStatuses = () => [
+    ...IN_PROGRESS_STATUSES,
+    ...FULFILLED_STATUSES,
+];
+
+const getReviewEligibleOrderStatuses = () => [
+    ...IN_PROGRESS_STATUSES,
+    ...FULFILLED_STATUSES,
+];
+
+
+const getCompletedOrderStatuses = () => FULFILLED_STATUSES;
+
+module.exports = {
+    orderStatusList,
+    getPendingOrderStatuses,
+    getInProgressOrderStatuses,
+    getFulfilledOrderStatuses,
+    getOnHoldOrderStatuses,
+    getCanceledOrFailedOrderStatuses,
+    getRefundedOrReturnedOrderStatuses,
+    getSalesEligibleOrderStatuses,
+    getReviewEligibleOrderStatuses,
+    getCompletedOrderStatuses,
+};
