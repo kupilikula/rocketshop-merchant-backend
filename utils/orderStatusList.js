@@ -1,8 +1,8 @@
 const orderStatusList = [
     "Order Created", // Order has been placed by the customer
     "Payment Initiated", // Payment is not yet confirmed
-    "Payment Received", // Payment has been successfully processed
     "Payment Failed", // Payment has been successfully processed
+    "Payment Received", // Payment has been successfully processed
     "Processing", // Order is being prepared
     "Ready for Pickup", // For pickup orders, when ready at the store
     "Awaiting Shipment", // Order is packed but not shipped
@@ -22,4 +22,21 @@ const getCompletedOrderStatuses = () => {
     return orderStatusList.slice(shippedIndex); // All statuses from 'Shipped' onwards
 };
 
-module.exports = {orderStatusList, getCompletedOrderStatuses};
+const getPaidOrderStatuses = () => {
+    const paidIndex = orderStatusList.indexOf("Payment Received");
+    return orderStatusList.slice(paidIndex); // All statuses from 'Payment Received' onward
+};
+
+const getSalesEligibleOrderStatuses = () => {
+    const startIndex = orderStatusList.indexOf("Payment Received");
+    const exclude = new Set([
+        "Refund Requested",
+        "Refund Processed",
+        "Returned",
+    ]);
+    return orderStatusList
+        .slice(startIndex)
+        .filter((status) => !exclude.has(status));
+};
+
+module.exports = {orderStatusList, getCompletedOrderStatuses, getPaidOrderStatuses, getSalesEligibleOrderStatuses};
