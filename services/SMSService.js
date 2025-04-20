@@ -44,6 +44,7 @@ class SMSService {
                 throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(responseData)}`);
             }
 
+            console.log('SMS sent successfully', responseData);
             // Validate the response format
             if (!this.isValidSMSResponse(responseData)) {
                 throw new Error('Invalid response format from SMS API');
