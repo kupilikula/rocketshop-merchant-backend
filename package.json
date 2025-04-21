@@ -24,7 +24,7 @@
     "@fastify/autoload": "5.10.0",
     "@fastify/cookie": "7.4.0",
     "@fastify/cors": "8.5.0",
-    "@fastify/rate-limit": "^10.2.2",
+    "@fastify/rate-limit": "9.1.0",
     "@fastify/sensible": "5.6.0",
     "dayjs": "^1.11.13",
     "dotenv": "16.4.7",
