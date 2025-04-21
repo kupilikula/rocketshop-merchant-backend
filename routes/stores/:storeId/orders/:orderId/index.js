@@ -48,6 +48,10 @@ module.exports = async function (fastify, opts) {
                 quantity: item.quantity,
             }));
 
+            const orderStatusHistory = await knex('order_status_history')
+                .where({ orderId })
+                .orderBy('updated_at', 'asc');
+
             // Combine the data into a single response
             const response = {
                 ...order,
@@ -59,6 +63,7 @@ module.exports = async function (fastify, opts) {
                     email: customer.email,
                 },
                 orderItems,
+                orderStatusHistory,
             };
 
             return reply.send(response);
