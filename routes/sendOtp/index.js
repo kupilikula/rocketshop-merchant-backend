@@ -8,7 +8,15 @@ const smsService = require("../../services/SMSService"); // Import the class ins
 
 
 module.exports = async function (fastify, opts) {
-    fastify.post('/', async function (request, reply) {
+    fastify.post('/',     {
+            config: {
+                rateLimit: {
+                    max: 5,                    // Max 5 OTP requests
+                    timeWindow: '10m',  // Per 10 minutes
+                }
+            }
+        },
+        async function (request, reply) {
         const { phone, context, storeId } = request.body;
 
         if (!phone || !context) {
