@@ -50,7 +50,7 @@ module.exports = async function (fastify, opts) {
 
             const orderStatusHistory = await knex('order_status_history')
                 .where({ orderId })
-                .orderBy('updated_at', 'asc');
+                .orderBy('updated_at', 'desc');
 
             // Combine the data into a single response
             const response = {
