@@ -397,18 +397,15 @@ exports.seed = async function (knex) {
         );
 
 
-        const orderItems = faker.helpers.multiple(
-            () => {
-                const product = faker.helpers.arrayElement(products.filter(p => p.storeId === store.storeId));
-                const quantity = faker.number.int({ min: 1, max: 10 });
-                return {
-                    productId: product.productId,
-                    price: product.price,
-                    quantity,
-                };
-            },
-            { count: faker.number.int({ min: 1, max: 5 }) }
-        );
+        const availableProducts = products.filter(p => p.storeId === store.storeId);
+        const orderItemsCount = faker.number.int({ min: 1, max: Math.min(5, availableProducts.length) });
+
+        const orderItems = faker.helpers.arrayElements(availableProducts, orderItemsCount)
+            .map(product => ({
+                productId: product.productId,
+                price: product.price,
+                quantity: faker.number.int({ min: 1, max: 10 })
+            }));
 
         const orderStatus = faker.helpers.arrayElement(orderStatusList);
         const orderStatusUpdateTime = faker.date.recent();
