@@ -134,7 +134,7 @@ module.exports = async function (fastify, opts) {
             .limit(5);
         // Top Customers (by total spend)
         const topCustomers = await knex
-            .select('c.*', 't.totalSpent', 't.orderCount')
+            .select('c.*', 't.totalSpent', 't.orderCount', 't.mostRecentOrderDate')
             .from('customers as c')
             .join(
                 knex('orders as o')
@@ -143,7 +143,8 @@ module.exports = async function (fastify, opts) {
                     .groupBy('o.customerId')
                     .select('o.customerId')
                     .sum({ totalSpent: 'o.orderTotal' })
-                    .count({ orderCount: 'o.orderId' }) // ✅ Count orders per customer
+                    .count({ orderCount: 'o.orderId' })
+                    .max('o.orderDate as mostRecentOrderDate') // ✅ NEW: most recent order
                     .as('t'),
                 'c.customerId',
                 't.customerId'
