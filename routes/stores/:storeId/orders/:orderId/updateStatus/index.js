@@ -30,7 +30,7 @@ module.exports = async function (fastify, opts) {
       await knex('order_status_history').insert({
         orderStatusId: uuidv4(),
         orderId,
-        status: newStatus,
+        orderStatus: newStatus,
         updated_at: new Date(),
       });
 
