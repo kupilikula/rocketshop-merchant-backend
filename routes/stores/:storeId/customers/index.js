@@ -1,7 +1,7 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
-const { getCompletedOrderStatuses } = require("../../../../utils/orderStatusList");
+const { getSalesEligibleOrderStatuses} = require("../../../../utils/orderStatusList");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
@@ -9,11 +9,11 @@ module.exports = async function (fastify, opts) {
     if (!storeId) return reply.status(400).send({ error: "Missing storeId" });
 
     try {
-      const completedStatuses = getCompletedOrderStatuses();
+      const salesEligibleOrderStatuses = getSalesEligibleOrderStatuses();
 
       const customers = await knex('orders as o')
           .where('o.storeId', storeId)
-          .whereIn('o.orderStatus', completedStatuses)
+          .whereIn('o.orderStatus', salesEligibleOrderStatuses)
           .groupBy('o.customerId', 'c.customerId')
           .select(
               'c.*',

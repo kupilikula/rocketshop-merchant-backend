@@ -1,7 +1,7 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
-const { getCompletedOrderStatuses } = require("../../../../utils/orderStatusList");
+const { getSalesEligibleOrderStatuses} = require("../../../../../utils/orderStatusList");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
@@ -22,10 +22,10 @@ module.exports = async function (fastify, opts) {
           .where({ customerId, storeId })
           .orderBy('orderDate', 'desc');
 
-      const completedStatuses = getCompletedOrderStatuses();
+      const salesEligibleOrderStatuses = getSalesEligibleOrderStatuses();
 
       // Aggregate stats from completed orders only
-      const completedOrders = orders.filter(o => completedStatuses.includes(o.orderStatus));
+      const completedOrders = orders.filter(o => salesEligibleOrderStatuses.includes(o.orderStatus));
       const totalSpent = completedOrders.reduce((sum, o) => sum + Number(o.orderTotal), 0);
       const orderCount = completedOrders.length;
       const mostRecentOrderDate = completedOrders.length > 0
