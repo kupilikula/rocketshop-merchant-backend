@@ -25,16 +25,15 @@ module.exports = async function (fastify, opts) {
       const salesEligibleOrderStatuses = getSalesEligibleOrderStatuses();
 
       // Aggregate stats from completed orders only
-      const completedOrders = orders.filter(o => salesEligibleOrderStatuses.includes(o.orderStatus));
-      const totalSpent = completedOrders.reduce((sum, o) => sum + Number(o.orderTotal), 0);
-      const orderCount = completedOrders.length;
-      const mostRecentOrderDate = completedOrders.length > 0
-          ? completedOrders[0].orderDate
+      const salesEligibleOrders = orders.filter(o => salesEligibleOrderStatuses.includes(o.orderStatus));
+      const totalSpent = salesEligibleOrders.reduce((sum, o) => sum + Number(o.orderTotal), 0);
+      const orderCount = salesEligibleOrders.length;
+      const mostRecentOrderDate = salesEligibleOrders.length > 0
+          ? salesEligibleOrders[0].orderDate
           : null;
 
       return reply.send({
         ...customer,
-        orders,
         totalSpent,
         orderCount,
         mostRecentOrderDate,
