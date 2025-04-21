@@ -167,7 +167,6 @@ exports.seed = async function (knex) {
                 gstInclusive: faker.datatype.boolean(),
                 rating: 0,
                 numberOfRatings: 0,
-                enableStockTracking: faker.datatype.boolean(),
                 created_at,
                 updated_at,
             });
