@@ -56,7 +56,7 @@ module.exports = async function (fastify, opts) {
         console.log('stores:', stores);
 
         // Clear all tokens for this context and app and phone
-        await knex('otp_verification').where({ phone, app: 'merchant', context: 'AUTH_LOGIN' }).del();
+        // await knex('otp_verification').where({ phone, app: 'merchant', context: 'AUTH_LOGIN' }).del();
 
         // Generate tokens & send response
         await TokenService.replyWithAuthTokens(reply, merchant, stores);
