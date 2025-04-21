@@ -1,58 +1,36 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
+const { getCompletedOrderStatuses } = require("../../../../utils/orderStatusList");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
     const { storeId } = request.params;
 
+    if (!storeId) return reply.status(400).send({ error: "Missing storeId" });
+
     try {
-      // Fetch customers and their orders in a single query
-      const customerOrders = await knex('customers')
-          .join('orders', 'customers.customerId', 'orders.customerId')
-          .where('orders.storeId', storeId)
-          .select(
-              'customers.*',
-              'orders.orderId',
-              'orders.orderStatus',
-              'orders.orderStatusUpdateTime',
-              knex.raw('CAST("orders"."orderTotal" AS DOUBLE PRECISION) as "orderTotal"'),
-              'orders.orderDate'
-          )
-          .orderBy('orders.orderDate', 'desc'); // Orders sorted by order date
+      const completedStatuses = getCompletedOrderStatuses();
 
-      console.log('customerOrders:', customerOrders);
+      // Subquery: aggregate totalSpent, orderCount, mostRecentOrderDate per customer
+      const customerStats = knex('orders')
+          .where({ storeId })
+          .whereIn('orderStatus', completedStatuses)
+          .groupBy('customerId')
+          .select('customerId')
+          .sum({ totalSpent: 'orderTotal' })
+          .count({ orderCount: 'orderId' })
+          .max('orderDate as mostRecentOrderDate')
+          .as('stats');
 
-      if (!customerOrders.length) {
-        return reply.status(200).send([]);
-      }
+      // Join with customer details
+      const customers = await knex
+          .select('c.*', 'stats.totalSpent', 'stats.orderCount', 'stats.mostRecentOrderDate')
+          .from('customers as c')
+          .leftJoin(customerStats, 'c.customerId', 'stats.customerId') // LEFT JOIN ensures we include customers with 0 orders
+          .orderBy('stats.mostRecentOrderDate', 'desc');
 
-      // Group orders by customerId
-      const groupedData = customerOrders.reduce((result, row) => {
-        const { orderId, orderStatus, orderStatusUpdateTime, orderTotal, orderDate, ...customerDetails } = row;
-
-        if (!result[row.customerId]) {
-          result[row.customerId] = {
-            ...customerDetails,
-            orders: [],
-          };
-        }
-
-        result[row.customerId].orders.push({
-          orderId,
-          orderStatus,
-          orderStatusUpdateTime,
-          orderTotal,
-          orderDate,
-        });
-
-        return result;
-      }, {});
-
-      // Convert grouped data back to an array
-      const customersWithOrders = Object.values(groupedData);
-
-      return reply.send(customersWithOrders);
+      return reply.send(customers);
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch customers.' });
