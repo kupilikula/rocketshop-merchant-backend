@@ -1,7 +1,7 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
-const { getSalesEligibleOrderStatuses} = require("../../../../utils/orderStatusList");
+const { getSalesEligibleOrderStatuses } = require("../../../../utils/orderStatusList");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
@@ -13,13 +13,20 @@ module.exports = async function (fastify, opts) {
 
       const customers = await knex('orders as o')
           .where('o.storeId', storeId)
-          .whereIn('o.orderStatus', salesEligibleOrderStatuses)
           .groupBy('o.customerId', 'c.customerId')
           .select(
               'c.*',
-              knex.raw('SUM(o."orderTotal")::float AS "totalSpent"'),
+              // Count of *all* orders for the customer at this store
               knex.raw('COUNT(o."orderId") AS "orderCount"'),
-              knex.raw('MAX(o."orderDate") AS "mostRecentOrderDate"')
+
+              // Count only sales-eligible orders using FILTER
+              knex.raw(`COUNT(o."orderId") FILTER (WHERE o."orderStatus" = ANY(?)) AS "salesEligibleOrderCount"`, [salesEligibleOrderStatuses]),
+
+              // Total spent only from sales-eligible orders
+              knex.raw(`SUM(CASE WHEN o."orderStatus" = ANY(?) THEN o."orderTotal" ELSE 0 END)::float AS "totalSpent"`, [salesEligibleOrderStatuses]),
+
+              // Most recent order date from sales-eligible orders
+              knex.raw(`MAX(CASE WHEN o."orderStatus" = ANY(?) THEN o."orderDate" ELSE NULL END) AS "mostRecentOrderDate"`, [salesEligibleOrderStatuses])
           )
           .join('customers as c', 'o.customerId', 'c.customerId')
           .orderBy('mostRecentOrderDate', 'desc');
