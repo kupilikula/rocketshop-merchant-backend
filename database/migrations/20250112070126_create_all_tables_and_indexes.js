@@ -66,7 +66,6 @@ exports.up = async function (knex) {
         table.boolean('gstInclusive').notNullable().defaultTo(false);
         table.decimal('rating').defaultTo(0);
         table.integer('numberOfRatings').notNullable().defaultTo(0);
-        table.boolean('enableStockTracking').notNullable().defaultTo(true);
         table.jsonb("productTags").defaultTo("[]");
         table.jsonb("attributes").defaultTo("[]");
         table.jsonb("mediaItems").defaultTo("[]");
