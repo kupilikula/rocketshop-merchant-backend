@@ -291,6 +291,9 @@ exports.up = async function (knex) {
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
         table.boolean('isActive').defaultTo(true); // For soft-deleting or archiving chats
         table.timestamps(true, true);
+        table.unique(['customerId', 'storeId']);
+        table.index(['customerId', 'storeId']);
+
     });
 
     await knex.schema.createTable('messages', (table) => {
@@ -300,6 +303,7 @@ exports.up = async function (knex) {
         table.enum('senderType', ['Customer', 'Merchant']).notNullable(); // Distinguish sender type
         table.text('message').notNullable(); // The message content
         table.timestamps(true, true);
+        table.index(['chatId', 'senderId', 'senderType']);
     });
 
     await knex.schema.createTable('message_reads', (table) => {
@@ -317,14 +321,6 @@ exports.up = async function (knex) {
         table.text('tokenHash').notNullable(); // Hashed refresh token
         table.timestamp('expires_at').notNullable(); // Expiration date of the token
         table.timestamps(true, true); // created_at and updated_at
-    });
-
-    await knex.schema.alterTable('chats', (table) => {
-        table.index(['customerId', 'storeId']);
-    });
-
-    await knex.schema.alterTable('messages', (table) => {
-        table.index(['chatId', 'senderId', 'senderType']);
     });
 
     // Add full-text and GIN indexes for `products`
