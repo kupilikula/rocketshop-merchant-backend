@@ -244,6 +244,7 @@ function initMessaging(io, app) {
  * Helper function to save a message to the database
  */
 async function saveMessageToDatabase(chatId, messageId, senderId, senderType, messageContent) {
+    console.log('saveMessageToDatabase:', chatId, messageId, senderId, senderType, messageContent);
     const [newMessage] = await knex('messages')
         .insert({
             messageId,
