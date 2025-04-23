@@ -114,7 +114,7 @@ module.exports = async function (fastify, opts) {
                         .reduce((sum, o) => sum + Number(o.orderTotal), 0);
                     return { date, total };
                 }),
-                month: [0, 1, 2, 3].map(weekOffset => {
+                month: [3, 2, 1, 0].map(weekOffset => {
                     const start = new Date(now);
                     const end = new Date(now);
                     start.setDate(now.getDate() - (7 * (weekOffset + 1)));
