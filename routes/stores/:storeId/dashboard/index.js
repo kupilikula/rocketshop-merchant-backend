@@ -3,26 +3,25 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
-const { getCompletedOrderStatuses } = require("../../../../utils/orderStatusList");
+const { getCompletedOrderStatuses, getInProgressOrderStatuses, getSalesEligibleOrderStatuses,
+    getCanceledOrFailedOrderStatuses, getRefundedOrReturnedOrderStatuses
+} = require("../../../../utils/orderStatusList");
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async function (request, reply) {
         const { storeId } = request.params;
         if (!storeId) return reply.status(400).send({ error: "Missing storeId" });
 
-        const completedStatuses = getCompletedOrderStatuses();
+        const now = new Date();
 
-        // Fetch store info
+        // === Fetch Store Info ===
         const store = await knex('stores').where({ storeId }).first();
+        if (!store) return reply.status(404).send({ error: "Store not found" });
 
-        // Banners
-        const banners = {
-            isActive: store.isActive,
-            noProducts: false,
-            noOrders: false,
-        };
+        const createdAt = new Date(store.createdAt || store.created_at);
+        const ageInDays = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
 
-        // Product inventory stats
+        // === Product Counts ===
         const productCounts = await knex("products")
             .where({ storeId })
             .count("productId as total")
@@ -30,25 +29,69 @@ module.exports = async function (fastify, opts) {
             .count(knex.raw(`CASE WHEN NOT "isActive" THEN 1 END`)).as("inactive")
             .first();
 
-        // Check if store has any products
-        banners.noProducts = Number(productCounts.total) === 0;
+        const totalProducts = Number(productCounts.total);
+        const activeProducts = Number(productCounts.active);
+        const inactiveProducts = Number(productCounts.inactive);
 
-        // Order stats
-        const allOrders = await knex('orders')
-            .where({ storeId });
+        // === Order Data ===
+        const allOrders = await knex('orders').where({ storeId });
+        const salesEligibleStatuses = getSalesEligibleOrderStatuses();
+        const completedStatuses = getCompletedOrderStatuses();
+        const inProgressStatuses = getInProgressOrderStatuses();
+        const canceledOrFailedStatuses = getCanceledOrFailedOrderStatuses();
+        const refundedOrReturnedStatuses = getRefundedOrReturnedOrderStatuses();
 
-        banners.noOrders = allOrders.length === 0;
+        const completedOrders = allOrders.filter(o => completedStatuses.includes(o.orderStatus));
+        const inProgressOrders = allOrders.filter(o => inProgressStatuses.includes(o.orderStatus));
+        const canceledOrFailedOrders = allOrders.filter(o => canceledOrFailedStatuses.includes(o.orderStatus));
+        const refundedOrReturnedOrders = allOrders.filter(o => refundedOrReturnedStatuses.includes(o.orderStatus));
+        const salesEligibleOrders = allOrders.filter(o => salesEligibleStatuses.includes(o.orderStatus));
 
-        const today = new Date();
-        const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-        const completedOrdersToday = allOrders.filter(o =>
-            completedStatuses.includes(o.orderStatus) &&
-            new Date(o.orderDate) >= startOfToday
-        );
-        const salesToday = completedOrdersToday.reduce((sum, o) => sum + Number(o.orderTotal), 0);
-        const newOrdersToday = allOrders.filter(o =>
-            new Date(o.orderDate) >= startOfToday
-        ).length;
+        // === Situational Awareness ===
+        const situations = {
+            storeIsActive: store.isActive,
+
+            // --- Products ---
+            totalProducts,
+            activeProducts,
+            inactiveProducts,
+            hasProducts: totalProducts > 0,
+            hasActiveProducts: activeProducts > 0,
+            hasInactiveProducts: inactiveProducts > 0,
+            firstActiveProduct: activeProducts === 1, // ✅ updated
+            firstInactiveProduct: inactiveProducts === 1 && activeProducts === 0,
+            firstFewActiveProducts: activeProducts > 1 && activeProducts < 5,
+            firstFewInactiveProducts: inactiveProducts > 1 && inactiveProducts < 5 && activeProducts === 0, // ✅ updated
+
+            // --- Orders ---
+            totalOrders: allOrders.length,
+            completedOrders: completedOrders.length, // ✅ added
+            inProgressOrders: inProgressOrders.length,
+            canceledOrFailedOrders: canceledOrFailedOrders.length,
+            refundedOrReturnedOrders: refundedOrReturnedOrders.length,
+
+            firstCompletedOrder: completedOrders.length === 1,
+            firstInProgressOrder: inProgressOrders.length === 1,
+            firstOrder: allOrders.length === 1,
+            firstFewOrders: allOrders.length > 1 && allOrders.length < 5,
+
+            // --- Store Age ---
+            storeAgeInDays: ageInDays,
+            firstWeek: ageInDays < 7,
+            firstMonth: ageInDays < 30,
+            firstYear: ageInDays < 365,
+
+        };
+
+        // === Quick Stats (sales today based on sales-eligible statuses) ===
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const salesToday = salesEligibleOrders
+            .filter(o => new Date(o.orderDate) >= startOfToday)
+            .reduce((sum, o) => sum + Number(o.orderTotal), 0);
+
+        const newOrdersToday = allOrders.filter(o => new Date(o.orderDate) >= startOfToday).length;
 
         const quickStats = {
             openOrders: allOrders.filter(o => !completedStatuses.includes(o.orderStatus)).length,
@@ -56,7 +99,7 @@ module.exports = async function (fastify, opts) {
             salesToday,
         };
 
-        // Chart Data — Last 7 days & 4 weeks
+        // === Charts (Sales and Orders) ===
         const past7Days = [...Array(7)].map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() - (6 - i));
@@ -66,23 +109,21 @@ module.exports = async function (fastify, opts) {
         const chartData = {
             sales: {
                 week: past7Days.map(date => {
-                    const total = allOrders
+                    const total = salesEligibleOrders
                         .filter(o => o.orderDate.toISOString().slice(0, 10) === date)
-                        .filter(o => completedStatuses.includes(o.orderStatus))
                         .reduce((sum, o) => sum + Number(o.orderTotal), 0);
                     return { date, total };
                 }),
                 month: [0, 1, 2, 3].map(weekOffset => {
-                    const now = new Date();
                     const start = new Date(now);
-                    start.setDate(start.getDate() - (7 * (weekOffset + 1)));
                     const end = new Date(now);
-                    end.setDate(end.getDate() - (7 * weekOffset));
+                    start.setDate(now.getDate() - (7 * (weekOffset + 1)));
+                    end.setDate(now.getDate() - (7 * weekOffset));
 
-                    const total = allOrders
+                    const total = salesEligibleOrders
                         .filter(o => {
                             const d = new Date(o.orderDate);
-                            return d >= start && d < end && completedStatuses.includes(o.orderStatus);
+                            return d >= start && d < end;
                         })
                         .reduce((sum, o) => sum + Number(o.orderTotal), 0);
 
@@ -97,11 +138,10 @@ module.exports = async function (fastify, opts) {
                     return { date, count };
                 }),
                 month: [0, 1, 2, 3].map(weekOffset => {
-                    const now = new Date();
                     const start = new Date(now);
-                    start.setDate(start.getDate() - (7 * (weekOffset + 1)));
                     const end = new Date(now);
-                    end.setDate(end.getDate() - (7 * weekOffset));
+                    start.setDate(now.getDate() - (7 * (weekOffset + 1)));
+                    end.setDate(now.getDate() - (7 * weekOffset));
 
                     const count = allOrders
                         .filter(o => {
@@ -114,6 +154,7 @@ module.exports = async function (fastify, opts) {
             }
         };
 
+        // === Top Products and Customers (unchanged) ===
         const topProducts = await knex
             .select('p.*', 't.totalQuantity', 't.totalSales')
             .from('products as p')
@@ -125,14 +166,14 @@ module.exports = async function (fastify, opts) {
                     .groupBy('oi.productId')
                     .select('oi.productId')
                     .sum('oi.quantity as totalQuantity')
-                    .select(knex.raw('SUM(oi.price * oi.quantity) as "totalSales"')) // ✅ Fixed alias
+                    .select(knex.raw('SUM(oi.price * oi.quantity) as "totalSales"'))
                     .as('t'),
                 'p.productId',
                 't.productId'
             )
             .orderBy('t.totalSales', 'desc')
             .limit(5);
-        // Top Customers (by total spend)
+
         const topCustomers = await knex
             .select('c.*', 't.totalSpent', 't.orderCount', 't.mostRecentOrderDate')
             .from('customers as c')
@@ -144,7 +185,7 @@ module.exports = async function (fastify, opts) {
                     .select('o.customerId')
                     .sum({ totalSpent: 'o.orderTotal' })
                     .count({ orderCount: 'o.orderId' })
-                    .max('o.orderDate as mostRecentOrderDate') // ✅ NEW: most recent order
+                    .max('o.orderDate as mostRecentOrderDate')
                     .as('t'),
                 'c.customerId',
                 't.customerId'
@@ -153,13 +194,13 @@ module.exports = async function (fastify, opts) {
             .limit(5);
 
         return reply.send({
-            banners,
+            situations,
             quickStats,
             chartData,
             productInventory: {
-                total: Number(productCounts.total),
-                active: Number(productCounts.active),
-                inactive: Number(productCounts.inactive),
+                total: totalProducts,
+                active: activeProducts,
+                inactive: inactiveProducts,
             },
             topProducts,
             topCustomers,
