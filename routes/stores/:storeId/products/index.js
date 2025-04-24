@@ -87,7 +87,8 @@ module.exports = async function (fastify, opts) {
           .select(
               'productCollections.productId',
               'collections.collectionId',
-              'collections.collectionName'
+              'collections.collectionName',
+                'collections.isActive'
           );
 
       const collectionsByProduct = productCollections.reduce((acc, pc) => {
@@ -95,6 +96,7 @@ module.exports = async function (fastify, opts) {
         acc[pc.productId].push({
           collectionId: pc.collectionId,
           collectionName: pc.collectionName,
+          isActive: pc.isActive,
         });
         return acc;
       }, {});
