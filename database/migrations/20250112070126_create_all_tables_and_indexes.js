@@ -356,7 +356,6 @@ exports.up = async function (knex) {
         table.index(["merchantId"]);
         table.unique(["merchantId", "expoPushToken"]);
     });
-};
 
     // Add full-text and GIN indexes for `products`
     await knex.schema.alterTable('products', (table) => {
