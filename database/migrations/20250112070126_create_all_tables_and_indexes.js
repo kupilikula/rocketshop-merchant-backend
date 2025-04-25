@@ -325,7 +325,7 @@ exports.up = async function (knex) {
 
     // Create customerPushTokens table
     await knex.schema.createTable("customerPushTokens", function (table) {
-        table.uuid("pushTokenid").primary();
+        table.uuid("pushTokenId").primary();
         table
             .uuid("customerId")
             .notNullable()
