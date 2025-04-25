@@ -28,6 +28,7 @@
     "@fastify/sensible": "5.6.0",
     "dayjs": "^1.11.13",
     "dotenv": "16.4.7",
+    "expo-server-sdk": "^3.15.0",
     "fastify": "4.29.0",
     "fastify-cli": "7.3.0",
     "fastify-plugin": "4.5.1",

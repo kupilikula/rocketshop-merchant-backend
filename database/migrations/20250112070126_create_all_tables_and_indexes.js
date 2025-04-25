@@ -323,6 +323,41 @@ exports.up = async function (knex) {
         table.timestamps(true, true); // created_at and updated_at
     });
 
+    // Create customerPushTokens table
+    await knex.schema.createTable("customerPushTokens", function (table) {
+        table.uuid("pushTokenid").primary();
+        table
+            .uuid("customerId")
+            .notNullable()
+            .references("customerId")
+            .inTable("customers")
+            .onDelete("CASCADE");
+        table.text("expoPushToken").notNullable();
+        table.jsonb("deviceInfo").nullable(); // optional device info like model, platform, version
+        table.timestamps(true, true); // createdAt, updatedAt
+
+        table.index(["customerId"]);
+        table.unique(["customerId", "expoPushToken"]);
+    });
+
+    // Create merchantPushTokens table
+    await knex.schema.createTable("merchantPushTokens", function (table) {
+        table.uuid("pushTokenId").primary();
+        table
+            .uuid("merchantId")
+            .notNullable()
+            .references("merchantId")
+            .inTable("merchants")
+            .onDelete("CASCADE");
+        table.text("expoPushToken").notNullable();
+        table.jsonb("deviceInfo").nullable();
+        table.timestamps(true, true);
+
+        table.index(["merchantId"]);
+        table.unique(["merchantId", "expoPushToken"]);
+    });
+};
+
     // Add full-text and GIN indexes for `products`
     await knex.schema.alterTable('products', (table) => {
         table.index(
@@ -352,6 +387,8 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
+    await knex.schema.dropTableIfExists("merchantPushTokens");
+    await knex.schema.dropTableIfExists("customerPushTokens");
     await knex.schema.dropTableIfExists('refresh_tokens');
     await knex.schema.dropTableIfExists('message_reads');
     await knex.schema.dropTableIfExists('messages');

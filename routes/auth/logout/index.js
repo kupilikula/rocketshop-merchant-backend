@@ -1,11 +1,15 @@
 'use strict'
 
+const knex = require('@database/knexInstance');
+
 const {verifyRefreshToken, deleteAllRefreshTokensForUser} = require("../../../services/TokenService");
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         const refreshToken = request.cookies.refreshToken;
+        const {expoPushToken} = request.body;
+        const {merchantId} = request.user;
 
-        if (!refreshToken) {
+        if (!refreshToken || !merchantId) {
             return reply.status(400).send({ error: 'Bad Request: No refresh token found' });
         }
 
@@ -16,6 +20,12 @@ module.exports = async function (fastify, opts) {
             // Delete all refresh tokens for the user
             await deleteAllRefreshTokensForUser(payload.userId);
 
+            // 🧹 Delete the push token if provided
+            if (expoPushToken) {
+                await knex("merchantPushTokens")
+                    .where({ merchantId, expoPushToken })
+                    .del();
+            }
             // Clear the refreshToken cookie
             reply.clearCookie('refreshToken', {
                 httpOnly: true,
