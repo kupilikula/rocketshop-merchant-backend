@@ -1,5 +1,7 @@
 const knex = require("@database/knexInstance");
 const { verifyAccessToken } = require("../services/TokenService");
+const {checkPreferencesAndSendNotificationToCustomer, CustomerNotificationTypes} = require("../services/PushNotificationsToCustomerService");
+const {MerchantNotificationTypes, checkPreferencesAndSendNotificationToStoreMerchants} = require("../services/PushNotificationsToMerchantsService");
 // Active connections map (if needed)
 const activeUsers = new Map();
 
@@ -177,6 +179,29 @@ function initMessaging(io, app) {
                     console.log(`Recipient ${recipientId} has no active sockets.`);
                 }
 
+                // 1. If recipient has no active sockets, fall back to push notification
+                if (!recipientSockets || recipientSockets.length === 0) {
+                    if (senderType === "Customer") {
+                        // ✅ Customer sent message → Notify all merchants of the store
+                        const customerName = await getCustomerName(senderId); // Optional for personalization
+                        await checkPreferencesAndSendNotificationToStoreMerchants(
+                            recipientId,
+                            MerchantNotificationTypes.NEW_MESSAGE,
+                            { chatId, customerName }
+                        );
+                        console.log(`Push notification sent to merchants of store ${recipientId}`);
+                    } else if (senderType === "Merchant") {
+                        // ✅ Merchant sent message → Notify the customer
+                        const {storeId, storeName} = await getStoreIdAndName(chatId); // senderId = merchantId
+                        await checkPreferencesAndSendNotificationToCustomer(
+                            recipientId,
+                            CustomerNotificationTypes.NEW_MESSAGE,
+                            { storeId, storeName }
+                        );
+                        console.log(`Push notification sent to customer ${recipientId}`);
+                    }
+                }
+
                 // Optionally log the message sent
                 console.log(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
             } catch (error) {
@@ -281,6 +306,37 @@ async function getRecipientId(chatId, senderId, senderType) {
         return null;
     } catch (error) {
         console.error("Error fetching recipient ID for chatId:", chatId, error);
+        return null;
+    }
+}
+
+async function getCustomerName(customerId) {
+    try {
+        const customer = await knex('customers')
+            .select('fullName')
+            .where({customerId})
+            .first();
+    } catch (error) {
+        console.error('Error fetching customer name:', error);
+        return null;
+    }
+}
+
+async function getStoreIdAndName(chatId) {
+    try {
+        const chatData = await knex('chats')
+            .select(['chats.storeId', 'stores.storeName'])
+            .leftJoin('stores', 'chats.storeId', 'stores.storeId')
+            .where('chats.chatId', chatId)
+            .first();
+
+        return chatData ? {
+            storeId: chatData.storeId,
+            storeName: chatData.storeName
+        } : null;
+
+    } catch (error) {
+        console.error('Error fetching store name:', error);
         return null;
     }
 }

@@ -2,6 +2,7 @@
 
 const {v4: uuidv4} = require('uuid');
 const knex = require("@database/knexInstance");
+const {checkPreferencesAndSendNotificationToCustomer, CustomerNotificationTypes} = require("../../../../../../services/PushNotificationsToCustomerService");
 
 module.exports = async function (fastify, opts) {
   fastify.patch('/', async (request, reply) => {
@@ -26,6 +27,8 @@ module.exports = async function (fastify, opts) {
             orderStatusUpdateTime: new Date(),
           });
 
+      const customerId = order.customerId;
+
       // Insert the status update into the order_status_history table
       await knex('order_status_history').insert({
         orderStatusId: uuidv4(),
@@ -33,6 +36,16 @@ module.exports = async function (fastify, opts) {
         orderStatus: newStatus,
         updated_at: new Date(),
       });
+
+      let notifType;
+      if (newStatus==='Delivered') {
+        notifType = CustomerNotificationTypes.ORDER_DELIVERED;
+      } else if (newStatus==='Cancelled') {
+        notifType = CustomerNotificationTypes.ORDER_CANCELED;
+      } else {
+        notifType = CustomerNotificationTypes.ORDER_STATUS_UPDATED;
+      }
+      await checkPreferencesAndSendNotificationToCustomer(customerId, notifType, {orderId, newStatus})
 
       return reply.send({ message: 'Order status updated successfully.' });
     } catch (error) {

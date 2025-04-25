@@ -323,6 +323,33 @@ exports.up = async function (knex) {
         table.timestamps(true, true); // created_at and updated_at
     });
 
+    await knex.schema.createTable('customerNotificationPreferences', function(table) {
+        table.uuid('customerId').primary().references('customerId').inTable('customers').onDelete('CASCADE');
+
+        table.boolean('muteAll').defaultTo(false);
+        table.boolean('orderStatus').defaultTo(true);
+        table.boolean('messages').defaultTo(true);
+        table.boolean('promotions').defaultTo(true);
+        table.boolean('orderDelivery').defaultTo(true);
+
+        table.timestamps(true, true);
+    });
+
+    await knex.schema.createTable('merchantNotificationPreferences', function(table) {
+        table.uuid('merchantId').primary().references('merchantId').inTable('merchants').onDelete('CASCADE');
+
+        table.boolean('muteAll').defaultTo(false);
+        table.boolean('newOrders').defaultTo(true);
+        table.boolean('messages').defaultTo(true);
+        table.boolean('returnRequests').defaultTo(true);
+        table.boolean('orderCancellations').defaultTo(true);
+        table.boolean('platformMessages').defaultTo(true);
+        table.boolean('ratingsAndReviews').defaultTo(true);
+        table.boolean('newFollowers').defaultTo(true);
+
+        table.timestamps(true, true);
+    });
+
     // Create customerPushTokens table
     await knex.schema.createTable("customerPushTokens", function (table) {
         table.uuid("pushTokenId").primary();
