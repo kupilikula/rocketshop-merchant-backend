@@ -316,6 +316,7 @@ async function getCustomerName(customerId) {
             .select('fullName')
             .where({customerId})
             .first();
+        return customer.fullName;
     } catch (error) {
         console.error('Error fetching customer name:', error);
         return null;
