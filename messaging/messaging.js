@@ -111,8 +111,9 @@ function initMessaging(io, app) {
         });
 
         // Handle sending messages
-        socket.on("sendMessage", async (messageData) => {
+        socket.on("sendMessage", async (messageData, ackCallback) => {
             if (!messagingAllowed()) {
+                if (ackCallback) ackCallback({ status: 'error', error: 'Messaging not allowed' });
                 return;
             }
             const { chatId, messageId, senderId, senderType, message } = messageData;
@@ -120,8 +121,19 @@ function initMessaging(io, app) {
             try {
                 console.log(`Sender socket ID: ${socket.id} sent a message`);
 
-                // Save the message to the database
-                const newMessage = await saveMessageToDatabase(chatId, messageId, senderId, senderType, message);
+                // 1. Check if message with same messageId already exists (deduplication)
+                const existingMessage = await knex('messages')
+                    .where({ messageId })
+                    .first();
+
+                let newMessage;
+                if (existingMessage) {
+                    console.log('Duplicate message detected, skipping insert:', messageId);
+                    newMessage = existingMessage; // Use existing message
+                } else {
+                    // Save the message to the database
+                    newMessage = await saveMessageToDatabase(chatId, messageId, senderId, senderType, message);
+                }
 
                 // Get all sockets in the chat room
                 const roomSockets = await io.in(chatId).fetchSockets();
@@ -200,6 +212,11 @@ function initMessaging(io, app) {
                         console.log(`Push notification sent to customer ${recipientId}`);
                     }
 
+
+                // 6. ACK the sender client
+                if (ackCallback) {
+                    ackCallback({ status: 'ok', messageId: newMessage.messageId });
+                }
 
                 // Optionally log the message sent
                 console.log(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
