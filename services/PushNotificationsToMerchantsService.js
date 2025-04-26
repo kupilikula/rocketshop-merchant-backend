@@ -81,7 +81,7 @@ const NotificationChannels = {
 
 async function shouldNotifyMerchant(knex, merchantId, notificationType) {
     const prefs = await knex('merchantNotificationPreferences')
-        .where({ merchantId })
+        .where({ merchantId, storeId })
         .first();
 
     if (!prefs) return true;
@@ -147,7 +147,7 @@ async function checkPreferencesAndSendNotificationToStoreMerchants(storeId, noti
     // Step 2: Check preferences and prepare messages
     for (const merchant of merchants) {
         console.log('loop through merchants, merchant:', merchant);
-        if (!(await shouldNotifyMerchant(knex, merchant.merchantId, type))) continue;
+        if (!(await shouldNotifyMerchant(knex, merchant.merchantId, storeId, type))) continue;
         console.log('shouldnotify true');
         if (!Expo.isExpoPushToken(merchant.expoPushToken)) continue;
         console.log('has push token true');
