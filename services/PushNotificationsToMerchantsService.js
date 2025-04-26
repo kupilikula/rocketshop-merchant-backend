@@ -12,11 +12,11 @@ const MerchantNotificationTypes = {
         data: { orderId },
     }),
 
-    NEW_MESSAGE: ({ chatId, customerName }) => ({
+    NEW_MESSAGE: ({ chatId, customerId, customerName }) => ({
         type: 'NEW_MESSAGE',
         title: 'New Message',
         body: `You received a message from ${customerName}`,
-        data: { chatId },
+        data: { chatId, customerId, customerName },
     }),
 
     ORDER_RETURN_REQUESTED: ({ orderId }) => ({
