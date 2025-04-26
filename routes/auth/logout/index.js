@@ -6,8 +6,7 @@ const {verifyRefreshToken, deleteAllRefreshTokensForUser} = require("../../../se
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         const refreshToken = request.cookies.refreshToken;
-        const {expoPushToken} = request.body;
-        const {merchantId} = request.user;
+        const {merchantId, expoPushToken} = request.body;
 
         if (!refreshToken || !merchantId) {
             return reply.status(400).send({ error: 'Bad Request: No refresh token found' });

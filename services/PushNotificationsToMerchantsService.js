@@ -119,7 +119,7 @@ async function shouldNotifyMerchant(knex, merchantId, notificationType) {
 async function checkPreferencesAndSendNotificationToStoreMerchants(storeId, notificationTemplateFunction, data) {
     const messagePayload = notificationTemplateFunction(data);
     const { type } = messagePayload;
-
+    console.log(`Checking and Sending notification of type ${type} to storeId ${storeId}`);
     // Step 1: Get merchants associated with store and their tokens
 // Start building the query
     let query = knex('merchantStores')
@@ -134,6 +134,7 @@ async function checkPreferencesAndSendNotificationToStoreMerchants(storeId, noti
     }
 
     const merchants = await query;
+    console.log('merchants query:', merchants);
 
     if (!merchants.length) {
         console.log(`No push tokens found for storeId ${storeId}`);
@@ -145,8 +146,11 @@ async function checkPreferencesAndSendNotificationToStoreMerchants(storeId, noti
 
     // Step 2: Check preferences and prepare messages
     for (const merchant of merchants) {
+        console.log('loop through merchants, merchant:', merchant);
         if (!(await shouldNotifyMerchant(knex, merchant.merchantId, type))) continue;
+        console.log('shouldnotify true');
         if (!Expo.isExpoPushToken(merchant.expoPushToken)) continue;
+        console.log('has push token true');
 
         validMessages.push({
             to: merchant.expoPushToken,
