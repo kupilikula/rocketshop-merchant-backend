@@ -157,23 +157,24 @@ function initMessaging(io, app) {
                 if (recipientSockets) {
                     recipientSockets.forEach((socketId) => {
                         const recipientSocket = io.sockets.sockets.get(socketId);
-                        if (recipientSocket) {
-                            if (recipientSocket.canReceiveMessages) {
-                                recipientSocket.emit("newMessage", {
-                                    chatId,
-                                    senderId,
-                                    senderType,
-                                    message: newMessage.message,
-                                    messageId: newMessage.messageId,
-                                    created_at: newMessage.created_at,
-                                });
-                                console.log(
-                                    `Sent newMessage event to socket ${socketId} for recipient ${recipientId}`
-                                );
-                            } else {
-                                console.log(`Skipping notification to merchant ${recipientSocket.user.merchantId} (messaging disabled)`);
-                            }
+                        if (!recipientSocket) return;
+
+                        if (recipientSocket.user?.merchantId && !recipientSocket.canReceiveMessages) {
+                            console.log(`Skipping merchant socket ${socketId} (messaging disabled)`);
+                            return;
                         }
+
+                        // For customers or allowed merchants, send the message
+                        recipientSocket.emit("newMessage", {
+                            chatId,
+                            senderId,
+                            senderType,
+                            message: newMessage.message,
+                            messageId: newMessage.messageId,
+                            created_at: newMessage.created_at,
+                        });
+
+                        console.log(`Sent newMessage to ${userType || 'unknown'} socket ${socketId} for recipient ${recipientId}`);
                     });
                 } else {
                     console.log(`Recipient ${recipientId} has no active sockets.`);
