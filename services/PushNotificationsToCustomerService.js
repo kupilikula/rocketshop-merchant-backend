@@ -35,7 +35,7 @@ const CustomerNotificationTypes = {
     }),
     PROMOTION: ({promotionId, promoText}) => ({
         type: 'PROMOTION',
-        title: 'New Promotion',
+        title: 'New Offer',
         body: promoText,
         data: { promotionId },
     }),
@@ -43,10 +43,10 @@ const CustomerNotificationTypes = {
 
 const NotificationChannels = {
     CUSTOMER: {
-        ORDER_STATUS: 'order-status',
-        ORDER_DELIVERY: 'order-delivery',
-        CHAT: 'chat',
-        PROMOTIONS: 'promotions',
+        ORDER_STATUS: 'orderStatus',
+        ORDER_DELIVERY: 'orderDelivery',
+        CHAT_MESSAGE: 'chatMessages',
+        MISCELLANEOUS: 'miscellaneous',
     },
 };
 
@@ -69,9 +69,9 @@ async function shouldNotifyCustomer(customerId, notificationType) {
         case 'ORDER_DELIVERED':
             return prefs.orderDelivery;
         case 'NEW_MESSAGE':
-            return prefs.messages;
+            return prefs.chatMessages;
         case 'PROMOTION':
-            return prefs.promotions;
+            return prefs.miscellaneous;
         default:
             return true;
     }
@@ -121,10 +121,10 @@ async function checkPreferencesAndSendNotificationToCustomer(customerId, notific
             channelId = NotificationChannels.CUSTOMER.ORDER_DELIVERY;
             break;
         case 'NEW_MESSAGE':
-            channelId = NotificationChannels.CUSTOMER.CHAT;
+            channelId = NotificationChannels.CUSTOMER.CHAT_MESSAGE;
             break;
         case 'PROMOTION':
-            channelId = NotificationChannels.CUSTOMER.PROMOTIONS;
+            channelId = NotificationChannels.CUSTOMER.MISCELLANEOUS;
             break;
     }
 

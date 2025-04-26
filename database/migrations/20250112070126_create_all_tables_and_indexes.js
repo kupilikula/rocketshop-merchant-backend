@@ -328,22 +328,24 @@ exports.up = async function (knex) {
 
         table.boolean('muteAll').defaultTo(false);
         table.boolean('orderStatus').defaultTo(true);
-        table.boolean('messages').defaultTo(true);
-        table.boolean('promotions').defaultTo(true);
         table.boolean('orderDelivery').defaultTo(true);
+        table.boolean('chatMessages').defaultTo(true);
+        table.boolean('miscellaneous').defaultTo(true);
+
 
         table.timestamps(true, true);
     });
 
     await knex.schema.createTable('merchantNotificationPreferences', function(table) {
         table.uuid('merchantId').primary().references('merchantId').inTable('merchants').onDelete('CASCADE');
-
+        table.uuid('storeId').notNullable().references('stores.storeId').onDelete('CASCADE');
+        table.primary(['merchantId', 'storeId']);
         table.boolean('muteAll').defaultTo(false);
         table.boolean('newOrders').defaultTo(true);
-        table.boolean('messages').defaultTo(true);
+        table.boolean('chatMessages').defaultTo(true);
         table.boolean('returnRequests').defaultTo(true);
         table.boolean('orderCancellations').defaultTo(true);
-        table.boolean('platformMessages').defaultTo(true);
+        table.boolean('miscellaneous').defaultTo(true);
         table.boolean('ratingsAndReviews').defaultTo(true);
         table.boolean('newFollowers').defaultTo(true);
 

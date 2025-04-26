@@ -57,13 +57,33 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: "Merchant already part of this store" });
         }
 
-        await knex('merchantStores').insert({
-            merchantStoreId: uuidv4(),
-            storeId,
-            merchantId: merchant.merchantId,
-            merchantRole,
-            canReceiveMessages,
-            created_at: knex.fn.now()
+        // Insert merchant-store association and default notification preferences inside a transaction
+        await knex.transaction(async (trx) => {
+            // Insert into merchantStores
+            await trx('merchantStores').insert({
+                merchantStoreId: uuidv4(),
+                storeId,
+                merchantId: merchant.merchantId,
+                merchantRole,
+                canReceiveMessages,
+                created_at: knex.fn.now()
+            });
+
+            // Insert default notification preferences
+            await trx('merchantNotificationPreferences').insert({
+                merchantId: merchant.merchantId,
+                storeId,
+                muteAll: false,
+                newOrders: true,
+                chatMessages: true,
+                returnRequests: true,
+                orderCancellations: true,
+                miscellaneous: true,
+                ratingsAndReviews: true,
+                newFollowers: true,
+                created_at: knex.fn.now(),
+                updated_at: knex.fn.now()
+            });
         });
 
         return reply.status(200).send({ success: true });
