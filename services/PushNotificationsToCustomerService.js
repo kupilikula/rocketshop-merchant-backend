@@ -27,11 +27,11 @@ const CustomerNotificationTypes = {
         body: 'Your order was canceled by the store',
         data: { orderId },
     }),
-    NEW_MESSAGE: ({storeId, storeName}) => ({
+    NEW_MESSAGE: ({chatId, storeId, storeName}) => ({
         type: 'NEW_MESSAGE',
         title: 'New Message',
         body: `You have a new message from ${storeName}`,
-        data: { storeId },
+        data: {chatId, storeId, storeName },
     }),
     PROMOTION: ({promotionId, promoText}) => ({
         type: 'PROMOTION',

@@ -195,7 +195,7 @@ function initMessaging(io, app) {
                         await checkPreferencesAndSendNotificationToCustomer(
                             recipientId,
                             CustomerNotificationTypes.NEW_MESSAGE,
-                            { storeId, storeName }
+                            { chatId, storeId, storeName }
                         );
                         console.log(`Push notification sent to customer ${recipientId}`);
                     }
