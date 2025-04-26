@@ -90,8 +90,9 @@ async function shouldNotifyCustomer(customerId, notificationType) {
 async function checkPreferencesAndSendNotificationToCustomer(customerId, notificationTemplateFunction, data) {
     const messagePayload = notificationTemplateFunction(data);
     const { type } = messagePayload;
-
+    console.log(`Checking and Sending notification of type ${type} to customerId ${customerId}`);
     const allow = await shouldNotifyCustomer(customerId, type);
+    console.log(`Notification of type ${type} allowed: ${allow}`);
     if (!allow) {
         console.log(`Notification of type ${type} skipped for customerId ${customerId}`);
         return;
