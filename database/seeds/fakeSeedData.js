@@ -96,6 +96,29 @@ exports.seed = async function (knex) {
     await knex('merchantStores').insert(merchantStores);
     console.log('MerchantStores seeded.');
 
+    console.log('Seeding merchant notification preferences...');
+    const merchantNotificationPreferences = merchantStores.map(merchantStore => {
+        const { created_at, updated_at } = generateTimestamps();
+        return {
+            merchantId: merchantStore.merchantId,
+            storeId: merchantStore.storeId,
+            muteAll: false,
+            newOrders: true,
+            chatMessages: true,
+            returnRequests: true,
+            orderCancellations: true,
+            miscellaneous: true,
+            ratingsAndReviews: true,
+            newFollowers: true,
+            created_at,
+            updated_at
+        };
+    });
+
+    await knex('merchantNotificationPreferences').insert(merchantNotificationPreferences);
+    console.log('Merchant notification preferences seeded.');
+
+
 // Seed collections
     console.log('Seeding collections...');
     const collections = [];
@@ -222,6 +245,25 @@ exports.seed = async function (knex) {
     });
     await knex("customers").insert(customers);
     console.log("Customers seeded.");
+
+    console.log('Seeding customer notification preferences...');
+    const customerNotificationPreferences = customers.map(customer => {
+        const { created_at, updated_at } = generateTimestamps();
+        return {
+            customerId: customer.customerId,
+            orderStatus: true,
+            orderDelivery: true,
+            chatMessages: true,
+            miscellaneous: true,
+            muteAll: false,
+            created_at,
+            updated_at
+        };
+    });
+
+    await knex('customerNotificationPreferences').insert(customerNotificationPreferences);
+    console.log('Customer notification preferences seeded.');
+
 
 // Seed deliveryAddresses
     console.log("Seeding delivery addresses...");

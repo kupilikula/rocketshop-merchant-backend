@@ -415,6 +415,8 @@ exports.up = async function (knex) {
 };
 
 exports.down = async function (knex) {
+    await knex.schema.dropTableIfExists("customerNotificationPreferences");
+    await knex.schema.dropTableIfExists("merchantNotificationPreferences");
     await knex.schema.dropTableIfExists("merchantPushTokens");
     await knex.schema.dropTableIfExists("customerPushTokens");
     await knex.schema.dropTableIfExists('refresh_tokens');
