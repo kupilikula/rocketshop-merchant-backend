@@ -88,6 +88,8 @@ async function shouldNotifyCustomer(customerId, notificationType) {
  * @param  {object} data - arguments passed to the template function
  */
 async function checkPreferencesAndSendNotificationToCustomer(customerId, notificationTemplateFunction, data) {
+
+    try {
     const messagePayload = notificationTemplateFunction(data);
     const { type } = messagePayload;
     console.log(`Checking and Sending notification of type ${type} to customerId ${customerId}`);
@@ -151,6 +153,9 @@ async function checkPreferencesAndSendNotificationToCustomer(customerId, notific
     }
 
     console.log(`Sent push notifications to customerId ${customerId}`, tickets);
+    } catch (error) {
+        console.error("Error sending notifications: ", error);
+    }
 }
 
 // ----------------------
