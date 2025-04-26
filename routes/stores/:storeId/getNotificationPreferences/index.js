@@ -32,21 +32,7 @@ module.exports = async function (fastify, opts) {
                 .first();
 
             if (!preferences) {
-                // Insert default preferences
-                const defaultPreferences = {
-                    merchantId,
-                    storeId,
-                    newOrders: true,
-                    chatMessages: true,
-                    returnRequests: true,
-                    orderCancellations: true,
-                    miscellaneous: true,
-                    ratingsAndReviews: true,
-                    newFollowers: true,
-                    muteAll: false,
-                };
-                await knex('merchantNotificationPreferences').insert(defaultPreferences);
-                preferences = defaultPreferences;
+                return reply.status(404).send({error: 'Preferences not found'})
             }
 
             return reply.status(200).send(preferences);
