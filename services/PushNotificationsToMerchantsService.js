@@ -79,7 +79,7 @@ const NotificationChannels = {
 
 // --- Preference Check ---
 
-async function shouldNotifyMerchant(knex, merchantId, notificationType) {
+async function shouldNotifyMerchant(knex, merchantId, storeId, notificationType) {
     const prefs = await knex('merchantNotificationPreferences')
         .where({ merchantId, storeId })
         .first();
