@@ -5,7 +5,7 @@ const knex = require('@database/knexInstance');
 module.exports = async function (fastify, opts) {
     fastify.patch('/', async (request, reply) => {
         const merchantId = request.user.merchantId;
-        const { storeId } = request.body;
+        const { storeId } = request.params;
 
         if (!storeId || !merchantId) {
             return reply.status(400).send({ error: 'storeId and merchantId is required' });
