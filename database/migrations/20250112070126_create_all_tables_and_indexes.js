@@ -337,7 +337,7 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.createTable('merchantNotificationPreferences', function(table) {
-        table.uuid('merchantId').primary().references('merchantId').inTable('merchants').onDelete('CASCADE');
+        table.uuid('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
         table.uuid('storeId').notNullable().references('stores.storeId').onDelete('CASCADE');
         table.primary(['merchantId', 'storeId']);
         table.boolean('muteAll').defaultTo(false);
