@@ -135,7 +135,10 @@ async function checkPreferencesAndSendNotificationToCustomer(customerId, notific
             to: t.expoPushToken,
             title: messagePayload.title,
             body: messagePayload.body,
-            data: messagePayload.data,
+            data: {
+                type: messagePayload.type,
+                ...messagePayload.data
+            },
             sound: 'default',
             channelId,
         }));
