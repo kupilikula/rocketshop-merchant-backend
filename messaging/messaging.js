@@ -186,7 +186,7 @@ function initMessaging(io, app) {
                         await checkPreferencesAndSendNotificationToStoreMerchants(
                             recipientId,
                             MerchantNotificationTypes.NEW_MESSAGE,
-                            { chatId, customerName }
+                            { chatId, customerId: senderId, customerName }
                         );
                         console.log(`Push notification sent to merchants of store ${recipientId}`);
                     } else if (senderType === "Merchant") {
