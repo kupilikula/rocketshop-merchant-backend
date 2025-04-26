@@ -181,7 +181,7 @@ function initMessaging(io, app) {
                 }
 
                 // 1. If recipient has no active sockets, fall back to push notification
-                if (!recipientSockets || recipientSockets.length === 0) {
+                // if (!recipientSockets || recipientSockets.length === 0) {
                     if (senderType === "Customer") {
                         // ✅ Customer sent message → Notify all merchants of the store
                         const customerName = await getCustomerName(senderId); // Optional for personalization
@@ -201,7 +201,7 @@ function initMessaging(io, app) {
                         );
                         console.log(`Push notification sent to customer ${recipientId}`);
                     }
-                }
+                // }
 
                 // Optionally log the message sent
                 console.log(`Message sent in chat ${chatId} by ${senderId}: ${message}`);
