@@ -10,10 +10,10 @@ module.exports = async function (fastify, opts) {
             const customer = await knex('chats')
                 .join('customers', 'chats.customerId', '=', 'customers.customerId')
                 .where('chats.chatId', chatId)
-                .select('customers.customerId', 'customers.fullName')
+                .select('customers.customerId', 'customers.fullName', 'customers.phone')
                 .first();
 
-            if (!store) {
+            if (!customer) {
                 return reply.status(404).send({ error: 'Customer not found' });
             }
 
