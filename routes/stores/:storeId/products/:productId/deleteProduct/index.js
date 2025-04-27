@@ -3,7 +3,7 @@
 const knex = require("@database/knexInstance");
 const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 
-// Configure your S3 client (DigitalOcean Spaces)
+// Configure S3 client (DigitalOcean Spaces)
 const s3Client = new S3Client({
     endpoint: 'https://blr1.digitaloceanspaces.com',
     region: 'us-east-1',
@@ -15,12 +15,38 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = 'rocketshop-media';
 
+async function deleteProductMedia(storeId, productId) {
+    const prefix = `stores/${storeId}/products/${productId}/`;
+
+    const listedObjects = await s3Client.send(new ListObjectsV2Command({
+        Bucket: BUCKET_NAME,
+        Prefix: prefix,
+    }));
+
+    if (listedObjects.Contents && listedObjects.Contents.length > 0) {
+        const deleteParams = {
+            Bucket: BUCKET_NAME,
+            Delete: {
+                Objects: listedObjects.Contents.map((obj) => ({ Key: obj.Key })),
+                Quiet: false,
+            },
+        };
+        await s3Client.send(new DeleteObjectsCommand(deleteParams));
+    }
+}
+
+async function deleteProductFromDb(storeId, productId) {
+    await knex('products')
+        .where({ storeId, productId })
+        .del();
+}
+
 module.exports = async function (fastify, opts) {
     fastify.delete('/', async function (request, reply) {
         const { storeId, productId } = request.params;
         const requestingMerchantId = request.user.merchantId;
 
-        // 2. Check Admin role
+        // 1. Check Admin role
         const merchant = await knex('merchantStores')
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
@@ -29,7 +55,7 @@ module.exports = async function (fastify, opts) {
             return reply.status(403).send({ error: 'Only Admin merchants can delete products.' });
         }
 
-        // 3. Fetch and validate product
+        // 2. Fetch and validate product
         const product = await knex('products')
             .where({ storeId, productId })
             .first();
@@ -38,33 +64,16 @@ module.exports = async function (fastify, opts) {
             return reply.status(404).send({ error: 'Product not found' });
         }
 
-        // 4. Delete product media files from Spaces
+        // 3. Parallelize deletion of media and DB record
         try {
-            const prefix = `stores/${storeId}/products/${productId}/`;
-            const listedObjects = await s3Client.send(new ListObjectsV2Command({
-                Bucket: BUCKET_NAME,
-                Prefix: prefix,
-            }));
-
-            if (listedObjects.Contents && listedObjects.Contents.length > 0) {
-                const deleteParams = {
-                    Bucket: BUCKET_NAME,
-                    Delete: {
-                        Objects: listedObjects.Contents.map((obj) => ({ Key: obj.Key })),
-                        Quiet: false,
-                    },
-                };
-                await s3Client.send(new DeleteObjectsCommand(deleteParams));
-            }
+            await Promise.all([
+                deleteProductMedia(storeId, productId),
+                deleteProductFromDb(storeId, productId),
+            ]);
         } catch (err) {
             request.log.error(err);
-            return reply.status(500).send({ error: 'Failed to delete product media from Spaces' });
+            return reply.status(500).send({ error: 'Failed to delete product' });
         }
-
-        // 5. Delete the product from database
-        await knex('products')
-            .where({ storeId, productId })
-            .del();
 
         return reply.send({ success: true });
     });
