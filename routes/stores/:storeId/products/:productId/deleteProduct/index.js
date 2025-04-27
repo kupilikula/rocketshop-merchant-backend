@@ -16,9 +16,8 @@ const s3Client = new S3Client({
 const BUCKET_NAME = 'rocketshop-media';
 
 module.exports = async function (fastify, opts) {
-    fastify.post('/', async function (request, reply) {
+    fastify.delete('/', async function (request, reply) {
         const { storeId, productId } = request.params;
-        // const { phone, otp } = request.body;
         const requestingMerchantId = request.user.merchantId;
 
         // 2. Check Admin role
