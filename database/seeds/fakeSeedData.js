@@ -230,6 +230,185 @@ exports.seed = async function (knex) {
     await knex('productCollections').insert(productCollections);
     console.log('ProductCollections seeded.');
 
+
+    // Place this below your productCollections seeding section
+
+    console.log('Seeding shipping rules and product_shipping_rules...');
+    const shippingRules = [];
+    const productShippingAssignments = [];
+
+    const storeProductsMap = products.reduce((acc, product) => {
+        if (!acc[product.storeId]) acc[product.storeId] = [];
+        acc[product.storeId].push(product);
+        return acc;
+    }, {});
+
+    const randomizeShippingConditions = () => {
+        const baseCostDefault = faker.number.int({ min: 20, max: 100 });
+        const costModifiersDefault = {
+            extraPerItemEnabled: faker.datatype.boolean(),
+            extraPerItemCost: faker.number.int({ min: 5, max: 20 }),
+            freeItemCount: faker.number.int({ min: 0, max: 5 }),
+            discountEnabled: faker.datatype.boolean(),
+            discountPercentage: faker.number.int({ min: 5, max: 20 }),
+            discountThreshold: faker.number.int({ min: 500, max: 2000 }),
+            capEnabled: faker.datatype.boolean(),
+            capAmount: faker.number.int({ min: 100, max: 300 }),
+        };
+
+        const random = Math.random();
+
+        if (random < 0.6) {
+            // 60% only fallback
+            return [
+                {
+                    when: [],
+                    baseCost: baseCostDefault,
+                    costModifiers: costModifiersDefault,
+                }
+            ];
+        } else if (random < 0.8) {
+            // 20% inside Chennai + fallback
+            return [
+                {
+                    when: [
+                        {
+                            type: 'location',
+                            operator: 'inside',
+                            locationType: 'city',
+                            city: 'Chennai',
+                            state: 'Tamil Nadu',
+                            country: 'India',
+                        }
+                    ],
+                    baseCost: faker.number.int({ min: 20, max: 60 }),
+                    costModifiers: costModifiersDefault,
+                },
+                {
+                    when: [],
+                    baseCost: baseCostDefault,
+                    costModifiers: costModifiersDefault,
+                }
+            ];
+        } else if (random < 0.9) {
+            // 10% inside Tamil Nadu + fallback
+            return [
+                {
+                    when: [
+                        {
+                            type: 'location',
+                            operator: 'inside',
+                            locationType: 'state',
+                            state: 'Tamil Nadu',
+                            country: 'India',
+                        }
+                    ],
+                    baseCost: faker.number.int({ min: 25, max: 70 }),
+                    costModifiers: costModifiersDefault,
+                },
+                {
+                    when: [],
+                    baseCost: baseCostDefault,
+                    costModifiers: costModifiersDefault,
+                }
+            ];
+        } else {
+            // 10% inside India + fallback
+            return [
+                {
+                    when: [
+                        {
+                            type: 'location',
+                            operator: 'inside',
+                            locationType: 'country',
+                            country: 'India',
+                        }
+                    ],
+                    baseCost: faker.number.int({ min: 30, max: 80 }),
+                    costModifiers: costModifiersDefault,
+                },
+                {
+                    when: [],
+                    baseCost: baseCostDefault,
+                    costModifiers: costModifiersDefault,
+                }
+            ];
+        }
+    };
+
+    for (const store of stores) {
+        const storeProducts = storeProductsMap[store.storeId] || [];
+
+        if (storeProducts.length === 0) continue;
+
+        // Create 10 groupingEnabled rules per store
+        for (let i = 0; i < 10; i++) {
+            const { created_at, updated_at } = generateTimestamps();
+            const shippingRuleId = faker.string.uuid();
+
+            shippingRules.push({
+                shippingRuleId,
+                storeId: store.storeId,
+                ruleName: `Generic Shipping Rule ${i + 1} for ${store.storeName}`,
+                conditions: JSON.stringify(randomizeShippingConditions()),
+                groupingEnabled: true,
+                isActive: true,
+                created_at,
+                updated_at,
+            });
+
+            // Assign 5–15 random products to this grouping rule
+            const selectedProducts = faker.helpers.arrayElements(storeProducts, faker.number.int({ min: 5, max: Math.min(15, storeProducts.length) }));
+
+            for (const product of selectedProducts) {
+                const { created_at: a_created, updated_at: a_updated } = generateTimestamps();
+                productShippingAssignments.push({
+                    assignmentId: faker.string.uuid(),
+                    productId: product.productId,
+                    shippingRuleId,
+                    created_at: a_created,
+                    updated_at: a_updated,
+                });
+            }
+        }
+
+        // Create 10 non-groupingEnabled rules for individual products
+        const selectedProductsForCustomRules = faker.helpers.arrayElements(storeProducts, Math.min(10, storeProducts.length));
+
+        for (const product of selectedProductsForCustomRules) {
+            const { created_at, updated_at } = generateTimestamps();
+            const shippingRuleId = faker.string.uuid();
+
+            shippingRules.push({
+                shippingRuleId,
+                storeId: store.storeId,
+                ruleName: `Custom Shipping for ${product.productName.slice(0, 20)}`,
+                conditions: JSON.stringify(randomizeShippingConditions()),
+                groupingEnabled: false,
+                isActive: true,
+                created_at,
+                updated_at,
+            });
+
+            const { created_at: a_created, updated_at: a_updated } = generateTimestamps();
+            productShippingAssignments.push({
+                assignmentId: faker.string.uuid(),
+                productId: product.productId,
+                shippingRuleId,
+                created_at: a_created,
+                updated_at: a_updated,
+            });
+        }
+    }
+
+    console.log(`Inserting ${shippingRules.length} shipping rules...`);
+    await knex('shipping_rules').insert(shippingRules);
+
+    console.log(`Inserting ${productShippingAssignments.length} product_shipping_rules...`);
+    await knex('product_shipping_rules').insert(productShippingAssignments);
+
+    console.log('Shipping rules and product_shipping_rules seeded.');
+
     console.log("Seeding customers...");
     const customers = Array.from({ length: 20 }, () => {
         const { created_at, updated_at } = generateTimestamps();

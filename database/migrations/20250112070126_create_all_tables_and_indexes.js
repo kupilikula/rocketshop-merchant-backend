@@ -259,21 +259,27 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
-    // Create `shippingRules` table
     await knex.schema.createTable("shipping_rules", function (table) {
-        table.uuid("ruleId").primary();
+        table.uuid("shippingRuleId").primary();
         table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
         table.string("ruleName").notNullable();
-        table.decimal("baseCost", 10, 2).notNullable();
-        table.string("formula").notNullable().defaultTo("baseCost");
-        table.jsonb("conditions").notNullable().defaultTo('{}');
-        table.jsonb('applicableTo').notNullable().defaultTo('{}');
-        table.integer("priority").notNullable();
+        table.jsonb("conditions").notNullable().defaultTo('[]'); // ✅
+        table.boolean("groupingEnabled").notNullable().defaultTo(false); // ✅
         table.boolean("isActive").defaultTo(true);
         table.timestamps(true, true);
 
-        // Add an index on storeId and priority for efficient sorting and querying
-        table.index(['storeId', 'priority']);
+        // For fast lookups
+        table.index(["storeId"]);
+    });
+
+    await knex.schema.createTable("product_shipping_rules", function (table) {
+        table.uuid("assignmentId").primary();
+        table.uuid("productId").notNullable().references("productId").inTable("products").onDelete("CASCADE");
+        table.uuid("shippingRuleId").notNullable().references("shippingRuleId").inTable("shipping_rules").onDelete("CASCADE");
+        table.timestamps(true, true);
+
+        table.index(["productId"]);
+        table.index(["shippingRuleId"]);
     });
 
     await knex.schema.createTable('customer_saved_items', (table) => {
@@ -424,6 +430,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists('messages');
     await knex.schema.dropTableIfExists('chats');
     await knex.schema.dropTableIfExists('customer_saved_items');
+    await knex.schema.dropTableIfExists("product_shipping_rules");
     await knex.schema.dropTableIfExists("shipping_rules");
     await knex.schema.dropTableIfExists("offers");
     await knex.schema.dropTableIfExists("order_items");
