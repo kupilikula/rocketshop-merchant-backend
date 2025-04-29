@@ -231,8 +231,7 @@ exports.seed = async function (knex) {
     console.log('ProductCollections seeded.');
 
 
-    // Place this below your productCollections seeding section
-
+// 📦 Insert this after seeding products and productCollections
     console.log('Seeding shipping rules and product_shipping_rules...');
     const shippingRules = [];
     const productShippingAssignments = [];
@@ -259,7 +258,6 @@ exports.seed = async function (knex) {
         const random = Math.random();
 
         if (random < 0.6) {
-            // 60% only fallback
             return [
                 {
                     when: [],
@@ -268,7 +266,6 @@ exports.seed = async function (knex) {
                 }
             ];
         } else if (random < 0.8) {
-            // 20% inside Chennai + fallback
             return [
                 {
                     when: [
@@ -291,7 +288,6 @@ exports.seed = async function (knex) {
                 }
             ];
         } else if (random < 0.9) {
-            // 10% inside Tamil Nadu + fallback
             return [
                 {
                     when: [
@@ -313,7 +309,6 @@ exports.seed = async function (knex) {
                 }
             ];
         } else {
-            // 10% inside India + fallback
             return [
                 {
                     when: [
@@ -336,9 +331,10 @@ exports.seed = async function (knex) {
         }
     };
 
+    const assignedProductIds = new Set();
+
     for (const store of stores) {
         const storeProducts = storeProductsMap[store.storeId] || [];
-
         if (storeProducts.length === 0) continue;
 
         // Create 10 groupingEnabled rules per store
@@ -357,8 +353,9 @@ exports.seed = async function (knex) {
                 updated_at,
             });
 
-            // Assign 5–15 random products to this grouping rule
-            const selectedProducts = faker.helpers.arrayElements(storeProducts, faker.number.int({ min: 5, max: Math.min(15, storeProducts.length) }));
+            const availableProducts = storeProducts.filter(p => !assignedProductIds.has(p.productId));
+            const numProducts = Math.min(availableProducts.length, faker.number.int({ min: 5, max: 15 }));
+            const selectedProducts = faker.helpers.arrayElements(availableProducts, numProducts);
 
             for (const product of selectedProducts) {
                 const { created_at: a_created, updated_at: a_updated } = generateTimestamps();
@@ -369,11 +366,13 @@ exports.seed = async function (knex) {
                     created_at: a_created,
                     updated_at: a_updated,
                 });
+                assignedProductIds.add(product.productId);
             }
         }
 
-        // Create 10 non-groupingEnabled rules for individual products
-        const selectedProductsForCustomRules = faker.helpers.arrayElements(storeProducts, Math.min(10, storeProducts.length));
+        // Create 10 non-groupingEnabled rules per store
+        const availableProducts = storeProducts.filter(p => !assignedProductIds.has(p.productId));
+        const selectedProductsForCustomRules = faker.helpers.arrayElements(availableProducts, Math.min(10, availableProducts.length));
 
         for (const product of selectedProductsForCustomRules) {
             const { created_at, updated_at } = generateTimestamps();
@@ -398,18 +397,16 @@ exports.seed = async function (knex) {
                 created_at: a_created,
                 updated_at: a_updated,
             });
+            assignedProductIds.add(product.productId);
         }
     }
 
-    // Ensure every product has at least one assigned shipping rule
-    const assignedProductIds = new Set(productShippingAssignments.map(a => a.productId));
-
+// Patch: Any products still unassigned get their own custom non-grouping rule
     for (const product of products) {
         if (!assignedProductIds.has(product.productId)) {
             const { created_at, updated_at } = generateTimestamps();
             const shippingRuleId = faker.string.uuid();
 
-            // Create a non-grouping rule for this lonely product
             shippingRules.push({
                 shippingRuleId,
                 storeId: product.storeId,
@@ -421,12 +418,13 @@ exports.seed = async function (knex) {
                 updated_at,
             });
 
+            const { created_at: a_created, updated_at: a_updated } = generateTimestamps();
             productShippingAssignments.push({
                 assignmentId: faker.string.uuid(),
                 productId: product.productId,
                 shippingRuleId,
-                created_at,
-                updated_at,
+                created_at: a_created,
+                updated_at: a_updated,
             });
 
             assignedProductIds.add(product.productId);
@@ -440,6 +438,7 @@ exports.seed = async function (knex) {
     await knex('product_shipping_rules').insert(productShippingAssignments);
 
     console.log('Shipping rules and product_shipping_rules seeded.');
+
 
     console.log("Seeding customers...");
     const customers = Array.from({ length: 20 }, () => {
