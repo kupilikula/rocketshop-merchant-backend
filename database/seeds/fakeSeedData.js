@@ -401,6 +401,38 @@ exports.seed = async function (knex) {
         }
     }
 
+    // Ensure every product has at least one assigned shipping rule
+    const assignedProductIds = new Set(productShippingAssignments.map(a => a.productId));
+
+    for (const product of products) {
+        if (!assignedProductIds.has(product.productId)) {
+            const { created_at, updated_at } = generateTimestamps();
+            const shippingRuleId = faker.string.uuid();
+
+            // Create a non-grouping rule for this lonely product
+            shippingRules.push({
+                shippingRuleId,
+                storeId: product.storeId,
+                ruleName: `Auto Shipping for ${product.productName.slice(0, 20)}`,
+                conditions: JSON.stringify(randomizeShippingConditions()),
+                groupingEnabled: false,
+                isActive: true,
+                created_at,
+                updated_at,
+            });
+
+            productShippingAssignments.push({
+                assignmentId: faker.string.uuid(),
+                productId: product.productId,
+                shippingRuleId,
+                created_at,
+                updated_at,
+            });
+
+            assignedProductIds.add(product.productId);
+        }
+    }
+
     console.log(`Inserting ${shippingRules.length} shipping rules...`);
     await knex('shipping_rules').insert(shippingRules);
 
