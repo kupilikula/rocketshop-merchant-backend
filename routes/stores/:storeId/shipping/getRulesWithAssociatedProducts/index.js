@@ -45,14 +45,14 @@ module.exports = async function (fastify, opts) {
             const productsByRule = {};
 
             for (const product of products) {
-                const ruleId = product.ruleId;
+                const shippingRuleId = product.shippingRuleId;
 
-                if (!productsByRule[ruleId]) {
-                    productsByRule[ruleId] = [];
+                if (!productsByRule[shippingRuleId]) {
+                    productsByRule[shippingRuleId] = [];
                 }
 
                 // Check if this product is already added
-                let existingProduct = productsByRule[ruleId].find(p => p.productId === product.productId);
+                let existingProduct = productsByRule[shippingRuleId].find(p => p.productId === product.productId);
 
                 if (!existingProduct) {
                     existingProduct = {
@@ -62,7 +62,7 @@ module.exports = async function (fastify, opts) {
                         productTags: product.productTags || [],
                         collectionIds: []
                     };
-                    productsByRule[ruleId].push(existingProduct);
+                    productsByRule[shippingRuleId].push(existingProduct);
                 }
 
                 if (product.collectionId && !existingProduct.collectionIds.includes(product.collectionId)) {
