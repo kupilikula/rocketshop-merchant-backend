@@ -1,10 +1,10 @@
 // routes/productShippingRules.js
 'use strict';
 
+const knex = require("@database/knexInstance");
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = async function (fastify, opts) {
-    const knex = fastify.knex;
 
     fastify.post('/', async (request, reply) => {
         const { productId, shippingRuleId } = request.body;
