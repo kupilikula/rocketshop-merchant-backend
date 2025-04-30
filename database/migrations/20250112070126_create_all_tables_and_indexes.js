@@ -263,13 +263,13 @@ exports.up = async function (knex) {
         table.uuid("shippingRuleId").primary();
         table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE");
         table.string("ruleName").notNullable();
-        table.jsonb("conditions").notNullable().defaultTo('[]'); // ✅
-        table.boolean("groupingEnabled").notNullable().defaultTo(false); // ✅
+        table.jsonb("conditions").notNullable().defaultTo('[]');
+        table.boolean("groupingEnabled").notNullable().defaultTo(false);
         table.boolean("isActive").defaultTo(true);
         table.timestamps(true, true);
 
-        // For fast lookups
-        table.index(["storeId"]);
+        // ✅ Index for faster store lookups
+        table.index(["storeId"], "idx_shipping_rules_store");
     });
 
     await knex.schema.createTable("product_shipping_rules", function (table) {
@@ -278,9 +278,13 @@ exports.up = async function (knex) {
         table.uuid("shippingRuleId").notNullable().references("shippingRuleId").inTable("shipping_rules").onDelete("CASCADE");
         table.timestamps(true, true);
 
-        table.index(["productId"]);
-        table.index(["shippingRuleId"]);
+        // ✅ Enforce 1 product → 1 shipping rule assignment
+        table.unique(["productId"], "idx_product_shipping_rules_unique_product");
+
+        // ✅ Normal indexes for joins
+        table.index(["shippingRuleId"], "idx_product_shipping_rules_shippingRuleId");
     });
+
 
     await knex.schema.createTable('customer_saved_items', (table) => {
         table.uuid('id').primary();
