@@ -5,7 +5,7 @@ const knex = require('@database/knexInstance');
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
         const { storeId } = request.params;
-        const {productId} = request.query;
+        const { productId } = request.query;
 
         if (!productId) {
             return reply.code(400).send({ error: 'Missing productId' });
@@ -30,7 +30,15 @@ module.exports = async function (fastify, opts) {
             return reply.code(404).send({ error: 'No shipping rule found for this product' });
         }
 
-        return reply.status(200).send(rule);
+        // Count how many products use this rule
+        const { count } = await knex('product_shipping_rules')
+            .where('shippingRuleId', rule.shippingRuleId)
+            .count('productId as count')
+            .first();
 
+        return reply.status(200).send({
+            ...rule,
+            usageCount: Number(count) || 0,
+        });
     });
 };
