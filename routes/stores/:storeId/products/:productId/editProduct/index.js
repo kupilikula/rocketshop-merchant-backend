@@ -1,6 +1,7 @@
 'use strict';
 
 const knex = require("@database/knexInstance");
+const {v4: uuidv4} = require('uuid');
 
 module.exports = async function (fastify, opts) {
     fastify.put('/', async (request, reply) => {
@@ -16,10 +17,12 @@ module.exports = async function (fastify, opts) {
                 return reply.status(404).send({ error: 'Product not found.' });
             }
 
-            let updatedData = request.body;
-            console.log('updatedData:', updatedData);
-            const updatedCollections = updatedData.collections || [];
-            delete updatedData.collections; // Remove collections from updatedData
+            let {
+                collections: updatedCollections = [],
+                shippingRuleDraft,
+                shippingRuleChoice,
+                ...updatedData
+            } = request.body;
 
             if (updatedData.mediaItems) {
                 delete updatedData.mediaItems;
@@ -86,6 +89,52 @@ module.exports = async function (fastify, opts) {
                 }
 
                 await knex('productCollections').insert(productCollectionsData);
+            }
+
+            // 🚚 Update or clone shipping rule if required
+            if (shippingRuleDraft && shippingRuleChoice) {
+                if (shippingRuleChoice === 'editAll') {
+                    // Update existing rule (get ruleId from association)
+                    const currentRule = await knex('product_shipping_rules')
+                        .where({ productId })
+                        .first();
+
+                    if (currentRule) {
+                        await knex('shipping_rules')
+                            .where({ shippingRuleId: currentRule.shippingRuleId })
+                            .update({
+                                ruleName: shippingRuleDraft.ruleName,
+                                conditions: JSON.stringify(shippingRuleDraft.conditions),
+                                groupingEnabled: shippingRuleDraft.groupingEnabled,
+                                isActive: true,
+                                updated_at: new Date(),
+                            });
+                    }
+                } else if (shippingRuleChoice === 'editOnlyThis') {
+                    const newShippingRuleId = uuidv4();
+                    await knex('shipping_rules').insert({
+                        shippingRuleId: newShippingRuleId,
+                        storeId,
+                        ruleName: shippingRuleDraft.ruleName,
+                        conditions: JSON.stringify(shippingRuleDraft.conditions),
+                        groupingEnabled: false, // forced off for product-specific rules
+                        isActive: true,
+                        created_at: new Date(),
+                        updated_at: new Date(),
+                    });
+
+                    await knex('product_shipping_rules')
+                        .where({ productId })
+                        .delete();
+
+                    await knex('product_shipping_rules').insert({
+                        assignmentId: uuidv4(),
+                        productId,
+                        shippingRuleId: newShippingRuleId,
+                        created_at: new Date(),
+                        updated_at: new Date(),
+                    });
+                }
             }
 
             return reply.send({ message: 'Product updated successfully.' });
