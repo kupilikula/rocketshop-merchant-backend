@@ -30,10 +30,7 @@ module.exports = async function (fastify, opts) {
             return reply.code(404).send({ error: 'No shipping rule found for this product' });
         }
 
-        return {
-            ...rule,
-            conditions: JSON.parse(rule.conditions),
-        };
+        return reply.status(200).send(rule);
 
     });
 };
