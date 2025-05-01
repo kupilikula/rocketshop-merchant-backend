@@ -23,6 +23,7 @@ module.exports = async function (fastify, opts) {
       }
       delete insertProduct.collections;
       delete insertProduct.variantInfo;
+      delete insertProduct.shipping;
 
       // Insert the new product into the database
       await knex('products')
