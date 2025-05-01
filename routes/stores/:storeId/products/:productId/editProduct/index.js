@@ -134,6 +134,35 @@ module.exports = async function (fastify, opts) {
                         created_at: new Date(),
                         updated_at: new Date(),
                     });
+                } else if (shippingRuleChoice === 'assignExisting' && shippingRuleDraft?.shippingRuleId) {
+                    const shippingRuleId = shippingRuleDraft.shippingRuleId;
+
+                    // ✅ Validate that the rule exists and belongs to the same store
+                    const validRule = await knex('shipping_rules')
+                        .where({ shippingRuleId, storeId })
+                        .first();
+
+                    if (!validRule) {
+                        return reply.status(400).send({ error: 'Invalid shipping rule selected.' });
+                    }
+
+                    const existingAssignment = await knex('product_shipping_rules')
+                        .where({ productId })
+                        .first();
+
+                    if (existingAssignment) {
+                        await knex('product_shipping_rules')
+                            .where({ productId })
+                            .update({ shippingRuleId, updated_at: new Date() });
+                    } else {
+                        await knex('product_shipping_rules').insert({
+                            assignmentId: uuidv4(),
+                            productId,
+                            shippingRuleId,
+                            created_at: new Date(),
+                            updated_at: new Date(),
+                        });
+                    }
                 }
             }
 
