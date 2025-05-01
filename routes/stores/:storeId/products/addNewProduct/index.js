@@ -1,7 +1,6 @@
 'use strict'
 const { v4: uuidv4 } = require("uuid");
 const knex = require("@database/knexInstance");
-const {defaultS3HttpAuthSchemeParametersProvider} = require("@aws-sdk/client-s3/dist-types/auth/httpAuthSchemeProvider");
 
 module.exports = async function (fastify, opts) {
   fastify.post('/', async (request, reply) => {
