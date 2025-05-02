@@ -1,4 +1,5 @@
 const {orderStatusList} = require("../../utils/orderStatusList");
+const { v4: uuidv4 } = require('uuid');
 
 exports.up = async function (knex) {
     // Create `merchants` table
@@ -240,6 +241,15 @@ exports.up = async function (knex) {
         table.uuid("customerId").primary().references("customerId").inTable("customers").onDelete("CASCADE");
         table.jsonb("cartData").notNullable();
         table.timestamp("updated_at").defaultTo(knex.fn.now());
+    });
+
+    await knex.schema.createTable('customer_cart_checkouts', (table) => {
+        table.uuid('checkoutId').primary().defaultTo(uuidv4());
+        table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
+        table.text('cartSummaryHash').notNullable();
+        table.timestamp('created_at').defaultTo(knex.fn.now());
+
+        table.unique(['customerId', 'cartSummaryHash'], 'uniq_customer_cart_hash');
     });
 
     // Create `offers` table
