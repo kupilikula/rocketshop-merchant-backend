@@ -28,6 +28,7 @@ jobs:
             rm -rf merchant-backend       
             mv tmp-merchant merchant-backend
             cd merchant-backend
+            cp ~/misc/merchant.dev.env .env
             echo 'Starting app.'
             pm2 start --name merchantApi npm -- run dev --
             echo 'Deployment to digital ocean finished'

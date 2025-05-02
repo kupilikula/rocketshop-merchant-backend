@@ -111,6 +111,25 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('storeRazorpayAccounts', (table) => {
+        table.uuid('storeId').primary()
+            .references('storeId')
+            .inTable('stores')
+            .onDelete('CASCADE');
+
+        table.string('razorpayAccountId').notNullable().unique(); // e.g. acc_123xyz
+        table.enum('status', ['pending', 'under_review', 'activated', 'rejected'])
+            .notNullable()
+            .defaultTo('pending');
+
+        table.string('onboardingUrl').nullable(); // For display or retry
+
+        table.jsonb('profileData').nullable(); // Optional: any metadata used during onboarding
+
+        table.timestamp('created_at').defaultTo(knex.fn.now());
+        table.timestamp('updated_at').defaultTo(knex.fn.now());
+    });
+
     await knex.schema.createTable('otp_verification', function(table) {
         table.increments('otpId').primary();
         table.string('phone', 15).notNullable().index(); // E.164 international format recommended
@@ -457,6 +476,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("recipients");
     await knex.schema.dropTableIfExists("deliveryAddresses");
     await knex.schema.dropTableIfExists("otp_verification");
+    await knex.schema.dropTableIfExists("storeRazorpayAccounts");
     await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
     await knex.schema.dropTableIfExists("customers");
