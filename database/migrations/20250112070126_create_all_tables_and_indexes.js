@@ -457,6 +457,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("recipients");
     await knex.schema.dropTableIfExists("deliveryAddresses");
     await knex.schema.dropTableIfExists("otp_verification");
+    await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
     await knex.schema.dropTableIfExists("customers");
     await knex.schema.dropTableIfExists("productVariants");
