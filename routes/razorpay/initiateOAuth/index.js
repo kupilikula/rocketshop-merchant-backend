@@ -12,10 +12,18 @@ module.exports = async function (fastify) {
         // This might come from request.user, request.session, etc., depending on your auth setup.
         // Using a placeholder here - replace with your actual logic.
         const merchantId = request.user?.merchantId; // Example: assuming auth middleware provides this
-        const {storeId} = request.params;
+        const {storeId} = request.query;
 
         if (!storeId) {
             return reply.status(401).send({ error: 'Unauthorized or Store ID not found for user.' });
+        }
+
+        const store = await knex('merchantStores')
+            .where({ storeId, merchantId })
+            .first();
+
+        if (!store) {
+            return reply.status(403).send({ error: 'Unauthorized access to this store.' });
         }
 
         // --- 2. Generate Secure State ---
