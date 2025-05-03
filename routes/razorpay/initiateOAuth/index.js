@@ -38,7 +38,7 @@ module.exports = async function (fastify) {
             await knex('razorpay_oauth_states').insert({
                 state: state,
                 storeId: storeId,
-                expiresAt: expiresAt,
+                expires_at: expiresAt,
             });
             console.log(`Stored OAuth state for storeId: ${storeId}`);
         } catch (dbError) {
