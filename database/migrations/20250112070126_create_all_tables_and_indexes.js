@@ -1,7 +1,7 @@
 const {orderStatusList} = require("../../utils/orderStatusList");
-const { v4: uuidv4 } = require('uuid');
 
 exports.up = async function (knex) {
+    await knex.raw('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
     // Create `merchants` table
     await knex.schema.createTable('merchants', (table) => {
         table.uuid('merchantId').primary();
@@ -111,23 +111,28 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
-    await knex.schema.createTable('storeRazorpayAccounts', (table) => {
-        table.uuid('storeId').primary()
-            .references('storeId')
-            .inTable('stores')
-            .onDelete('CASCADE');
+    await knex.schema.createTable("razorpay_oauth_states", function (table) {
+        table.uuid("id").primary().defaultTo(knex.raw('gen_random_uuid()')); // Or use auto-incrementing integer if preferred
+        table.string("state").unique().notNullable().index(); // Unique state string, indexed
+        table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE") // If store is deleted, cascade delete related oauth states.index(); // Index for faster lookups by storeId
+        table.timestamp("expires_at", { useTz: true }).notNullable().index(); // Expiration timestamp, indexed
+        table.timestamp("created_at", { useTz: true }).defaultTo(knex.fn.now()); // Creation timestamp
+    });
 
-        table.string('razorpayAccountId').notNullable().unique(); // e.g. acc_123xyz
-        table.enum('status', ['pending', 'under_review', 'activated', 'rejected'])
-            .notNullable()
-            .defaultTo('pending');
-
-        table.string('onboardingUrl').nullable(); // For display or retry
-
-        table.jsonb('profileData').nullable(); // Optional: any metadata used during onboarding
-
-        table.timestamp('created_at').defaultTo(knex.fn.now());
-        table.timestamp('updated_at').defaultTo(knex.fn.now());
+    await knex.schema.createTable("razorpay_accounts", function (table) {
+        table.uuid("id").primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.uuid("storeId").notNullable().unique()
+            .references("storeId")
+            .inTable("stores")
+            .onDelete("CASCADE") // If store is deleted, cascade delete the Razorpay link
+            .index();
+        table.string("razorpayAccountId").notNullable().unique().index(); // Merchant's actual RZP Account ID
+        // Store as TEXT as encrypted tokens can be long
+        table.text("accessToken").notNullable(); // Should always have an access token on creation
+        table.text("refreshToken").nullable(); // Refresh token might not always be provided
+        table.timestamp("tokenExpiresAt", { useTz: true }).nullable(); // Expiration might not always be provided or relevant (e.g., if using refresh tokens heavily)
+        table.text("grantedScopes").nullable(); // Store granted scopes
+        table.timestamps(true, true); // Adds createdAt and updatedAt columns
     });
 
     await knex.schema.createTable('otp_verification', function(table) {
@@ -263,7 +268,7 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.createTable('customer_cart_checkouts', (table) => {
-        table.uuid('checkoutId').primary().defaultTo(uuidv4());
+        table.uuid('checkoutId').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
         table.text('cartSummaryHash').notNullable();
         table.timestamp('created_at').defaultTo(knex.fn.now());
@@ -489,4 +494,5 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("storeSettings");
     await knex.schema.dropTableIfExists("stores");
     await knex.schema.dropTableIfExists("merchants");
+    await knex.raw('DROP EXTENSION IF EXISTS "pgcrypto";');
 };
