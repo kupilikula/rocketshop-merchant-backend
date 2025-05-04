@@ -37,6 +37,7 @@ app.after(() => {
 
 // Register your application as a normal plugin
 const appService = require('./app.js');
+const {scheduleOrderCleanupJob} = require("./services/cleanUpAbandonedOrders");
 app.register(appService);
 
 // delay is the number of milliseconds for the graceful close to finish
@@ -47,10 +48,20 @@ closeWithGrace({ delay: process.env.FASTIFY_CLOSE_GRACE_DELAY || 500 }, async fu
     await app.close();
 });
 
-// Start listening
-app.listen({ port: process.env.PORT || 3000 }, (err) => {
-    if (err) {
+const startServer = async () => {
+    try {
+        // Use await to wait for the server to successfully start listening
+        // Specify host '0.0.0.0' to listen on all available network interfaces
+        await app.listen({ port: process.env.PORT || 3000, host: '0.0.0.0' });
+
+        // --- Schedule the cron job ONLY AFTER successful server start ---
+        app.log.info("Server started successfully. Scheduling background jobs...");
+        scheduleOrderCleanupJob();
+
+    } catch (err) {
         app.log.error(err);
         process.exit(1);
     }
-});
+};
+
+startServer();

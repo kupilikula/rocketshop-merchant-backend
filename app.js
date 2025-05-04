@@ -39,6 +39,7 @@ module.exports = async function (fastify, opts) {
         '/auth/register',
       '/auth/refreshToken',
       '/auth/logout',
+        '/razorpay/webhook',
     ];
     const routePath = request.raw.url.split('?')[0]; // Get the path without query parameters
     console.log('routePath:', routePath);

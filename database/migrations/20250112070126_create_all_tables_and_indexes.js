@@ -240,6 +240,7 @@ exports.up = async function (knex) {
         table.jsonb("deliveryAddress").defaultTo("{}");
         table.decimal("orderTotal", 10, 2).notNullable();
         table.timestamp("orderDate").defaultTo(knex.fn.now());
+        table.string('paymentId').nullable().index(); // Add nullable paymentId column, index optional
         table.timestamps(true, true);
     });
 
@@ -248,6 +249,7 @@ exports.up = async function (knex) {
         table.uuid("orderStatusId").primary();
         table.uuid("orderId").notNullable().references("orderId").inTable("orders").onDelete("CASCADE");
         table.enum("orderStatus", orderStatusList).notNullable();
+        table.text('notes').nullable(); // Add nullable text column for notes
         table.timestamps(true, true);
     });
 
@@ -260,6 +262,22 @@ exports.up = async function (knex) {
         table.integer("quantity").notNullable();
         table.timestamps(true, true);
     });
+
+    await knex.schema.createTable('razorpay_order_mapping', function(table) {
+        // Using default Knex incrementing primary key for simplicity unless you prefer UUIDs everywhere
+        table.increments('mappingId').primary();
+        // Razorpay Order IDs look like 'order_ABC123XYZ', typically < 40 chars
+        table.string('razorpayOrderId', 40).notNullable().index(); // Index for fast webhook lookups
+        table.uuid('platformOrderId').notNullable(); // Your internal order ID
+        table.foreign('platformOrderId') // Define Foreign Key constraint
+            .references('orderId')
+            .inTable('orders')
+            .onDelete('CASCADE'); // If an order is deleted, cascade delete the mapping
+        table.timestamps(true, true); // Adds created_at and updated_at
+        // Index on platformOrderId might be useful for other lookups
+        table.index('platformOrderId');
+    });
+
 
     await knex.schema.createTable("customer_carts", (table) => {
         table.uuid("customerId").primary().references("customerId").inTable("customers").onDelete("CASCADE");
@@ -481,6 +499,8 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("recipients");
     await knex.schema.dropTableIfExists("deliveryAddresses");
     await knex.schema.dropTableIfExists("otp_verification");
+    await knex.schema.dropTableIfExists("razorpay_oauth_states");
+    await knex.schema.dropTableIfExists("razorpay_order_mapping");
     await knex.schema.dropTableIfExists("storeRazorpayAccounts");
     await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
