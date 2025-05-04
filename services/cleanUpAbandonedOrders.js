@@ -18,8 +18,8 @@ const FAILED_STATUS = "Failed"; // The status to set for abandoned orders
 let razorpayInstance;
 try {
     razorpayInstance = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
+        key_id: process.env.RAZORPAY_API_KEY_ID,
+        key_secret: process.env.RAZORPAY_API_KEY_SECRET,
     });
 } catch(initError) {
     console.error("[Cron Job - Abandoned Orders] Failed to initialize Razorpay SDK:", initError);
