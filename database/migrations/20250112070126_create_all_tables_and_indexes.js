@@ -501,7 +501,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("otp_verification");
     await knex.schema.dropTableIfExists("razorpay_oauth_states");
     await knex.schema.dropTableIfExists("razorpay_order_mapping");
-    await knex.schema.dropTableIfExists("storeRazorpayAccounts");
+    await knex.schema.dropTableIfExists("razorpay_accounts");
     await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
     await knex.schema.dropTableIfExists("customers");
