@@ -1,72 +1,98 @@
-// For customer app or merchant app — choose one version per app
+// routes/razorpay/initiateOAuthParams.js (Example new file/route path)
 
-const knex = require('@database/knexInstance');
+'use strict';
+
+const knex = require('@database/knexInstance'); // Adjust path if needed
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
+
+// --- Configuration ---
+// Razorpay's static authorization endpoint URL (confirm from their docs)
+const RAZORPAY_AUTHORIZATION_ENDPOINT = 'https://auth.razorpay.com/authorize';
+const OAUTH_STATE_EXPIRY_MINUTES = 10; // How long the state is valid
 
 module.exports = async function (fastify) {
+
+    // Consider changing the route path if necessary, e.g., '/params' if mounted under /initiateOAuth
     fastify.get('/', async (request, reply) => {
 
-        // --- 1. Get Store ID ---
-        // IMPORTANT: Retrieve the storeId associated with the authenticated user.
-        // This might come from request.user, request.session, etc., depending on your auth setup.
-        // Using a placeholder here - replace with your actual logic.
-        const merchantId = request.user?.merchantId; // Example: assuming auth middleware provides this
-        const {storeId} = request.query;
+        // --- 1. Get Store ID & Validate Merchant Access ---
+        // Assumes your authentication middleware adds 'user' object with 'merchantId'
+        const merchantId = request.user?.merchantId;
+        const { storeId } = request.query;
 
+        // Validate input
+        if (!merchantId) {
+            fastify.log.warn('Merchant ID missing from authenticated request in initiateOAuthParams');
+            // Use 403 Forbidden as it's an access issue, not bad request syntax
+            return reply.status(403).send({ error: 'Forbidden: Merchant identifier missing.' });
+        }
         if (!storeId) {
-            return reply.status(401).send({ error: 'Unauthorized or Store ID not found for user.' });
+            return reply.status(400).send({ error: 'Bad Request: storeId query parameter is required.' });
         }
 
-        const store = await knex('merchantStores')
-            .where({ storeId, merchantId })
-            .first();
-
-        if (!store) {
-            return reply.status(403).send({ error: 'Unauthorized access to this store.' });
-        }
-
-        // --- 2. Generate Secure State ---
-        const state = crypto.randomBytes(16).toString('hex'); // Generate 32 char hex string
-
-        // --- 3. Calculate Expiration (e.g., 10 minutes from now) ---
-        const expiresInMinutes = 10;
-        const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
-
-        // --- 4. Store State in Database ---
         try {
-            await knex('razorpay_oauth_states').insert({
-                state: state,
-                storeId: storeId,
-                expires_at: expiresAt,
-            });
-            console.log(`Stored OAuth state for storeId: ${storeId}`);
-        } catch (dbError) {
-            console.log('Failed to store OAuth state:', dbError);
-            return reply.status(500).send({ error: 'Failed to initiate OAuth flow.' });
+            // Check if this merchant is associated with the requested storeId
+            const storeAccess = await knex('merchantStores')
+                .where({ storeId, merchantId })
+                .first('merchantStoreId'); // Just check for existence
+
+            if (!storeAccess) {
+                fastify.log.warn({ merchantId, storeId }, 'Forbidden attempt to initiate OAuth for store.');
+                return reply.status(403).send({ error: 'Forbidden: You do not have permission for this store.' });
+            }
+            fastify.log.info({ merchantId, storeId }, 'Store access verified for OAuth initiation.');
+
+            // --- 2. Generate Secure State ---
+            const state = crypto.randomBytes(16).toString('hex');
+            fastify.log.info({ state: state.substring(0, 5) + '...', storeId }, 'Generated OAuth state.'); // Log truncated state
+
+            // --- 3. Calculate Expiration ---
+            const expiresAt = new Date(Date.now() + OAUTH_STATE_EXPIRY_MINUTES * 60 * 1000);
+
+            // --- 4. Store State in Database ---
+            try {
+                await knex('razorpay_oauth_states').insert({
+                    // Assuming your table has auto-generated primary key (like UUID default)
+                    state: state,
+                    storeId: storeId,
+                    expires_at: expiresAt,
+                });
+                fastify.log.info({ state: state.substring(0, 5) + '...', storeId, expiresAt }, 'Stored OAuth state in DB.');
+            } catch (dbError) {
+                fastify.log.error({ err: dbError, storeId }, 'Database error storing OAuth state.');
+                return reply.status(500).send({ error: 'Internal Server Error: Failed to initiate OAuth flow.' });
+            }
+
+            // --- 5. Get Config from Environment Variables ---
+            // Ensure these env vars are set correctly for the running environment (QA/Prod)
+            const clientId = process.env.RAZORPAY_CLIENT_ID;
+            const redirectUri = process.env.RAZORPAY_REDIRECT_URI; // e.g., https://merchant.rocketshop.in/razorpay/authCallback
+            const scopes = process.env.RAZORPAY_SCOPES;       // e.g., 'read_write'
+
+            if (!clientId || !redirectUri || !scopes) {
+                fastify.log.error('Razorpay OAuth environment variables missing (CLIENT_ID, REDIRECT_URI, SCOPES).');
+                return reply.status(500).send({ error: 'Server configuration error.' });
+            }
+
+            // --- 6. Prepare Response Payload for Frontend ---
+            const responsePayload = {
+                authorizationEndpoint: RAZORPAY_AUTHORIZATION_ENDPOINT, // The base URL for auth
+                clientId: clientId,                   // Your app's client ID
+                scopes: scopes,                       // Space-separated string of scopes
+                state: state,                         // The unique state for this request
+                redirectUri: redirectUri              // The URI Razorpay must redirect to
+                // responseType: 'code' // Not needed here, expo-auth-session adds it
+            };
+            fastify.log.info({ clientId, redirectUri, scopes, state: state.substring(0,5)+'...'}, 'Returning OAuth parameters to frontend.');
+
+            // --- 7. Return Parameters to Frontend ---
+            // Instead of the full URL, send the object with parameters
+            return reply.send(responsePayload);
+
+        } catch (error) {
+            // Catch any unexpected errors (like DB connection issues during store check)
+            fastify.log.error({ err: error, storeId, merchantId }, 'Unexpected error during OAuth parameter initiation.');
+            return reply.status(500).send({ error: 'An unexpected server error occurred.' });
         }
-
-        // --- 5. Get Config from Environment Variables ---
-        // Ensure these are loaded correctly (e.g., using @fastify/env or dotenv)
-        const clientId = process.env.RAZORPAY_CLIENT_ID;
-        const redirectUri = process.env.RAZORPAY_REDIRECT_URI;
-        const scopes = process.env.RAZORPAY_SCOPES;
-
-        if (!clientId || !redirectUri || !scopes) {
-            fastify.log.error('Razorpay OAuth environment variables not configured.');
-            return reply.status(500).send({ error: 'Server configuration error.' });
-        }
-
-
-        // --- 6. Construct Authorization URL ---
-        const authorizationUrl = new URL('https://auth.razorpay.com/authorize'); // Verify exact base URL in Razorpay docs
-        authorizationUrl.searchParams.append('response_type', 'code');
-        authorizationUrl.searchParams.append('client_id', clientId);
-        authorizationUrl.searchParams.append('redirect_uri', redirectUri);
-        authorizationUrl.searchParams.append('scope', scopes);
-        authorizationUrl.searchParams.append('state', state);
-
-        // --- 7. Return URL to Frontend ---
-        reply.send({ authorizationUrl: authorizationUrl.toString() });
     });
 };
