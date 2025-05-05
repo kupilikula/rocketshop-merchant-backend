@@ -42,7 +42,7 @@ jobs:
           script: |
             set -e # Exit script immediately if any command fails
             # --- Server Variables ---
-            APP_DIR="/home/${{ secrets.QA_DEPLOYER_USER }}/apps/merchant-app"
+            APP_DIR="/home/${{ secrets.QA_DEPLOYER_USER }}/merchant-backend"
             REPO_URL="git@github.com:RocketShopIndia/merchant-backend.git"
             BRANCH="develop"
             PM2_APP_NAME="merchantApi"
