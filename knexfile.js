@@ -1,5 +1,11 @@
 require('dotenv').config(); // If using a .env file
 
+// --- Add these logs ---
+console.log(`[Knexfile DEBUG] Timestamp: ${new Date().toISOString()}`);
+console.log(`[Knexfile DEBUG] Attempting to load config for NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`[Knexfile DEBUG] DB_HOST from env: ${process.env.DB_HOST}`); // Check if a DB var is loaded
+// --- End added logs ---
+
 module.exports = {
   development: {
     client: 'pg',

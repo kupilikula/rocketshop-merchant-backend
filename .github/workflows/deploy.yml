@@ -114,7 +114,7 @@ jobs:
 
             # 7. Reload/Start App
             echo "7. Reloading/Starting application via pm2..."
-            # Removed --env qa flag, app should load .env file with NODE_ENV=qa
+            # Removed --env qa flag, app should load .env file with NODE_ENV=development
             pm2 reload $PM2_APP_NAME || pm2 start "$START_SCRIPT_COMMAND" --name $PM2_APP_NAME
 
             # 8. Save PM2 List
