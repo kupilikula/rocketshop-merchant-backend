@@ -25,9 +25,8 @@ jobs:
 
       - name: Add QA Server to Known Hosts
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.QA_HOST }} >> ~/.ssh/known_hosts
-      #           Consider adding error checking or using a more secure method for known_hosts
+               mkdir -p ~/.ssh
+               ssh-keyscan -H ${{ secrets.QA_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy Application Files & Run Setup on Server
         uses: appleboy/ssh-action@master
