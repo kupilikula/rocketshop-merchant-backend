@@ -3,7 +3,6 @@
 'use strict';
 
 const knex = require('@database/knexInstance'); // Adjust path
-const crypto = require('crypto'); // May not be needed here unless generating UUIDs
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid'); // For status history UUIDs if used elsewhere
 const { encryptToken } = require("../../../utils/encryption"); // <<< ADJUST PATH
