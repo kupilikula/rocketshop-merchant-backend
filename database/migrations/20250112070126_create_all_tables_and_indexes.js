@@ -296,8 +296,6 @@ exports.up = async function (knex) {
         table.timestamps(true, true); // created_at, updated_at
     });
     console.log("Created table: razorpay_order_mapping.");
-};
-
 
     await knex.schema.createTable("customer_carts", (table) => {
         table.uuid("customerId").primary().references("customerId").inTable("customers").onDelete("CASCADE");
