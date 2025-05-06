@@ -111,7 +111,7 @@ module.exports = async function (fastify) {
 
             // Calculate expiration timestamp
             const expiresAt = new Date(Date.now() + (expires_in * 1000));
-
+            console.log('Encrypting tokens');
             // !!! IMPORTANT: Encrypt tokens before storing !!!
             const encryptedAccessToken = encryptToken(access_token); // Replace with your actual encryption function
             const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null; // Encrypt if exists
@@ -125,7 +125,7 @@ module.exports = async function (fastify) {
                 grantedScopes: scope,
                 // createdAt and updatedAt will be handled by timestamps(true, true)
             };
-
+            console.log('inserting new razorpay account data:', newRazorpayAccountData);
             // Insert the new record into razorpay_accounts table
             // Use ON CONFLICT for robustness if needed (e.g., if user somehow tries to connect twice quickly)
             // This simple insert assumes a clean first-time connection per storeId
