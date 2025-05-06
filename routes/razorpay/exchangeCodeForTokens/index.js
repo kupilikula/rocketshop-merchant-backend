@@ -88,6 +88,7 @@ module.exports = async function (fastify) {
                 },
                 validateStatus: status => status < 500 // Handle 4xx errors gracefully
             });
+            console.log('tokenResponse.data:', tokenResponse.data);
 
             if (tokenResponse.status >= 400) {
                 await knexTx.rollback(); // Rollback state deletion
