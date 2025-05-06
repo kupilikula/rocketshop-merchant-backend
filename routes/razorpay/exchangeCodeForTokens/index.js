@@ -66,19 +66,24 @@ module.exports = async function (fastify) {
             const basicAuthToken = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
             fastify.log.info(`Requesting tokens from Razorpay for code associated with state ${receivedState.substring(0,5)}...`);
 
-            const tokenResponse = await axios.post('https://auth.razorpay.com/token', new URLSearchParams({
-                grant_type: 'authorization_code',
-                code: code,
-                redirect_uri: redirectUri, // MUST match the URI registered AND used during initiation
-                client_id: clientId,
-            }), {
-                headers: {
-                    'Authorization': `Basic ${basicAuthToken}`,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                validateStatus: status => status < 500
-            });
-            console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
+            try {
+                const tokenResponse = await axios.post('https://auth.razorpay.com/token', new URLSearchParams({
+                    grant_type: 'authorization_code',
+                    code: code,
+                    redirect_uri: redirectUri, // MUST match the URI registered AND used during initiation
+                    client_id: clientId,
+                }), {
+                    headers: {
+                        'Authorization': `Basic ${basicAuthToken}`,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    validateStatus: status => status < 500
+                });
+                console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
+            } catch (error) {
+                console.log('Token request failed, ', error);
+                throw error;
+            }
 
             if (tokenResponse.status >= 400) {
                 console.log('Token request failed, ', JSON.stringify(tokenResponse, null, 2));
