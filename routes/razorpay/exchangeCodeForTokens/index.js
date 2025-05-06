@@ -20,7 +20,7 @@ module.exports = async function (fastify) {
         try {
             // --- Step 1: Verify State ---
             fastify.log.info(`Verifying state for storeId: ${storeId}, state: ${receivedState}`);
-            const storedState = await knexTx('oauth_states')
+            const storedState = await knexTx('razorpay_oauth_states')
                 .where({
                     state: receivedState,
                     storeId
@@ -39,7 +39,7 @@ module.exports = async function (fastify) {
             }
 
             // Check expiration (using current time on the server)
-            if (new Date(storedState.expiresAt) < new Date()) {
+            if (new Date(storedState.expires_at) < new Date()) {
                 await knexTx.rollback();
                 fastify.log.warn(`Expired state received: ${receivedState}`);
                 // Clean up expired state (optional here, could have a separate cleanup job)
@@ -56,7 +56,7 @@ module.exports = async function (fastify) {
 
 
             // State is valid, delete it immediately to prevent reuse
-            await knexTx('oauth_states').where({id: storedState.id}).del();
+            await knexTx('razorpay_oauth_states').where({id: storedState.id}).del();
             fastify.log.info(`State verified and deleted: ${receivedState}`);
 
             // --- Step 2: Exchange Code for Tokens with Razorpay ---
