@@ -63,19 +63,18 @@ module.exports = async function (fastify) {
                 return reply.status(500).send({success: false, error: 'Server configuration error.'});
             }
 
-            const basicAuthToken = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
             fastify.log.info(`Requesting tokens from Razorpay for code associated with state ${receivedState.substring(0,5)}...`);
 
             try {
-                const tokenResponse = await axios.post('https://auth.razorpay.com/token', new URLSearchParams({
+                const tokenResponse = await axios.post('https://auth.razorpay.com/token', {
                     grant_type: 'authorization_code',
                     code: code,
                     redirect_uri: redirectUri, // MUST match the URI registered AND used during initiation
                     client_id: clientId,
-                }), {
+                    client_secret: clientSecret,
+                }, {
                     headers: {
-                        'Authorization': `Basic ${basicAuthToken}`,
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Type': 'application/json',
                     },
                     validateStatus: status => status < 500
                 });
