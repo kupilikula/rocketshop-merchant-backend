@@ -65,7 +65,6 @@ module.exports = async function (fastify) {
 
             fastify.log.info(`Requesting tokens from Razorpay for code associated with state ${receivedState.substring(0,5)}...`);
 
-            try {
                 const tokenResponse = await axios.post('https://auth.razorpay.com/token', {
                     grant_type: 'authorization_code',
                     code: code,
@@ -79,11 +78,6 @@ module.exports = async function (fastify) {
                     validateStatus: status => status < 500
                 });
                 console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
-            } catch (error) {
-                console.log('Token request failed, ', error);
-                throw error;
-            }
-
             if (tokenResponse.status >= 400) {
                 console.log('Token request failed, ', JSON.stringify(tokenResponse, null, 2));
                 await knexTx.rollback();
