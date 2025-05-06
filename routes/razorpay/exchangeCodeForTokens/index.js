@@ -78,9 +78,10 @@ module.exports = async function (fastify) {
                 },
                 validateStatus: status => status < 500
             });
-            // console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
+            console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
 
             if (tokenResponse.status >= 400) {
+                console.log('Token request failed, ', JSON.stringify(tokenResponse, null, 2));
                 await knexTx.rollback();
                 fastify.log.error({ statusCode: tokenResponse.status, responseData: tokenResponse.data }, 'Razorpay token exchange failed.');
                 const errorMessage = tokenResponse.data?.error_description || tokenResponse.data?.error || 'Failed to exchange code with Razorpay.';
