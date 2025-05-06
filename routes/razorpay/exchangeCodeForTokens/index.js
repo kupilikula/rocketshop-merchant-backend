@@ -106,7 +106,7 @@ module.exports = async function (fastify) {
                 refresh_token, // May be null
                 expires_in,    // Seconds
                 scope,         // Granted scopes string
-                account_id     // Merchant's Razorpay Account ID
+                razorpay_account_id     // Merchant's Razorpay Account ID
             } = tokenData;
 
             // Calculate expiration timestamp
@@ -118,11 +118,11 @@ module.exports = async function (fastify) {
             // Prepare data for insertion into the new table
             const newRazorpayAccountData = {
                 storeId: storeId,
-                razorpayAccountId: account_id,
+                razorpayAccountId: razorpay_account_id,
                 accessToken: encryptedAccessToken,
                 refreshToken: encryptedRefreshToken,
                 tokenExpiresAt: expiresAt,
-                grantedScopes: scope,
+                grantedScopes: scope || null,
                 // createdAt and updatedAt will be handled by timestamps(true, true)
             };
             console.log('inserting new razorpay account data:', newRazorpayAccountData);
