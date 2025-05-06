@@ -111,29 +111,48 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
-    await knex.schema.createTable("razorpay_oauth_states", function (table) {
-        table.uuid("id").primary().defaultTo(knex.raw('gen_random_uuid()')); // Or use auto-incrementing integer if preferred
-        table.string("state").unique().notNullable().index(); // Unique state string, indexed
-        table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE") // If store is deleted, cascade delete related oauth states.index(); // Index for faster lookups by storeId
-        table.timestamp("expires_at", { useTz: true }).notNullable().index(); // Expiration timestamp, indexed
-        table.timestamp("created_at", { useTz: true }).defaultTo(knex.fn.now()); // Creation timestamp
+    // Table to store temporary state for OAuth flow, linked to the specific store
+    console.log("Creating table: razorpay_oauth_states...");
+    await knex.schema.createTable('razorpay_oauth_states', function(table) {
+        table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.string('state').unique().notNullable().index(); // Unique state string
+        table.uuid('storeId').notNullable().index(); // Store this flow was initiated for
+        table.foreign('storeId').references('storeId').inTable('stores').onDelete('CASCADE'); // Link to stores
+        table.timestamp('expires_at', { useTz: true }).notNullable().index(); // State expiration
+        table.timestamp('created_at', { useTz: true }).defaultTo(knex.fn.now());
     });
+    console.log("Created table: razorpay_oauth_states.");
 
-    await knex.schema.createTable("razorpay_accounts", function (table) {
-        table.uuid("id").primary().defaultTo(knex.raw('gen_random_uuid()'));
-        table.uuid("storeId").notNullable().unique()
-            .references("storeId")
-            .inTable("stores")
-            .onDelete("CASCADE") // If store is deleted, cascade delete the Razorpay link
-            .index();
-        table.string("razorpayAccountId").notNullable().unique().index(); // Merchant's actual RZP Account ID
-        // Store as TEXT as encrypted tokens can be long
-        table.text("accessToken").notNullable(); // Should always have an access token on creation
-        table.text("refreshToken").nullable(); // Refresh token might not always be provided
-        table.timestamp("tokenExpiresAt", { useTz: true }).nullable(); // Expiration might not always be provided or relevant (e.g., if using refresh tokens heavily)
-        table.text("grantedScopes").nullable(); // Store granted scopes
-        table.timestamps(true, true); // Adds createdAt and updatedAt columns
+    // Central table to store unique credentials for each linked Razorpay Account
+    console.log("Creating table: razorpay_credentials...");
+    await knex.schema.createTable('razorpay_credentials', function(table) {
+        table.uuid('credentialId').primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.string('razorpayAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
+        table.text('accessToken').notNullable(); // Store encrypted token
+        table.text('refreshToken').nullable(); // Store encrypted token (if available)
+        table.timestamp('tokenExpiresAt', { useTz: true }).nullable(); // Access token expiry
+        table.text('grantedScopes').nullable(); // Store granted scopes as text
+        // Optional: Track which merchant user initially linked this account
+        table.uuid('addedByMerchantId').nullable().index();
+        table.foreign('addedByMerchantId').references('merchantId').inTable('merchants').onDelete('SET NULL');
+        table.timestamps(true, true); // created_at, updated_at
     });
+    console.log("Created table: razorpay_credentials.");
+
+    console.log("Creating table: store_razorpay_links...");
+    await knex.schema.createTable('store_razorpay_links', function(table) {
+        table.uuid('linkId').primary().defaultTo(knex.raw('gen_random_uuid()'));
+        // UNIQUE Store ID - A store can only link to one credential set at a time
+        table.uuid('storeId').notNullable().unique().index();
+        table.foreign('storeId').references('storeId').inTable('stores').onDelete('CASCADE'); // If store deleted, link deleted
+        // Credential ID linked to
+        table.uuid('razorpayCredentialId').notNullable().index();
+        table.foreign('razorpayCredentialId').references('credentialId').inTable('razorpay_credentials').onDelete('CASCADE'); // If credential deleted, link deleted
+        table.timestamps(true, true);
+    });
+    console.log("Created table: store_razorpay_links.");
+
+
 
     await knex.schema.createTable('otp_verification', function(table) {
         table.increments('otpId').primary();
@@ -263,20 +282,21 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    console.log("Creating table: razorpay_order_mapping...");
     await knex.schema.createTable('razorpay_order_mapping', function(table) {
-        // Using default Knex incrementing primary key for simplicity unless you prefer UUIDs everywhere
+        // Use increments or UUID for primary key
         table.increments('mappingId').primary();
-        // Razorpay Order IDs look like 'order_ABC123XYZ', typically < 40 chars
-        table.string('razorpayOrderId', 40).notNullable().index(); // Index for fast webhook lookups
-        table.uuid('platformOrderId').notNullable(); // Your internal order ID
+        // Razorpay Order IDs look like 'order_ABC123XYZ'
+        table.string('razorpayOrderId', 40).notNullable().index(); // Index for webhook lookups
+        table.uuid('platformOrderId').notNullable().index(); // Your internal order ID
         table.foreign('platformOrderId') // Define Foreign Key constraint
             .references('orderId')
-            .inTable('orders')
-            .onDelete('CASCADE'); // If an order is deleted, cascade delete the mapping
-        table.timestamps(true, true); // Adds created_at and updated_at
-        // Index on platformOrderId might be useful for other lookups
-        table.index('platformOrderId');
+            .inTable('orders') // Assumes 'orders' table exists
+            .onDelete('CASCADE'); // If platform order deleted, remove mapping
+        table.timestamps(true, true); // created_at, updated_at
     });
+    console.log("Created table: razorpay_order_mapping.");
+};
 
 
     await knex.schema.createTable("customer_carts", (table) => {
@@ -489,9 +509,10 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("product_shipping_rules");
     await knex.schema.dropTableIfExists("shipping_rules");
     await knex.schema.dropTableIfExists("offers");
+    await knex.schema.dropTableIfExists("store_razorpay_links");
+    await knex.schema.dropTableIfExists("razorpay_credentials");
     await knex.schema.dropTableIfExists("razorpay_oauth_states");
     await knex.schema.dropTableIfExists("razorpay_order_mapping");
-    await knex.schema.dropTableIfExists("razorpay_accounts");
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
     await knex.schema.dropTableIfExists("orders");

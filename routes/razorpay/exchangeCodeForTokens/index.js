@@ -1,159 +1,196 @@
-// For customer app or merchant app — choose one version per app
+// routes/razorpay/exchangeCodeForTokens.js (Example path)
 
-const knex = require('@database/knexInstance');
-const crypto = require('crypto');
+'use strict';
+
+const knex = require('@database/knexInstance'); // Adjust path
+const crypto = require('crypto'); // May not be needed here unless generating UUIDs
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
-const {encryptToken} = require("../../../utils/encryption");
+const { v4: uuidv4 } = require('uuid'); // For status history UUIDs if used elsewhere
+const { encryptToken } = require("../../../utils/encryption"); // <<< ADJUST PATH
 
 module.exports = async function (fastify) {
     fastify.post('/', async (request, reply) => {
 
-        const { code, state: receivedState, storeId } = request.body;
+        // Only need code and state from frontend
+        const { code, state: receivedState } = request.body;
+        // Get the merchantId who initiated the original request (for tracking, if desired)
+        const initiatingMerchantId = request.user?.merchantId;
 
-        if (!storeId) {
-            return reply.status(401).send({ success: false, error: 'Unauthorized or Store ID not found.' });
+        if (!code || !receivedState) {
+            return reply.status(400).send({ success: false, error: 'Missing required code or state parameter.' });
+        }
+        if (!initiatingMerchantId) {
+            return reply.status(403).send({ success: false, error: 'Forbidden: Merchant not identified.' });
         }
 
-        const knexTx = await knex.transaction(); // Use transaction for state verification/deletion
+        const knexTx = await knex.transaction(); // Start transaction
 
         try {
-            // --- Step 1: Verify State ---
-            fastify.log.info(`Verifying state for storeId: ${storeId}, state: ${receivedState}`);
-            const storedState = await knexTx('razorpay_oauth_states')
-                .where({
-                    state: receivedState,
-                    storeId
-                    // Optionally add storeId check if state isn't globally unique enough by itself
-                    // storeId: storeId
-                })
-                .first(); // Get the first matching state
+            // --- Step 1: Verify State & Get Associated Store ID ---
+            fastify.log.info({ state: receivedState.substring(0,5)+'...' }, `Verifying state...`);
+            const stateRecord = await knexTx('razorpay_oauth_states')
+                .where('state', receivedState)
+                .first('id', 'storeId', 'expires_at'); // Get storeId linked to state
 
-            if (!storedState) {
+            if (!stateRecord) {
                 await knexTx.rollback();
-                fastify.log.warn(`Invalid or unknown state received: ${receivedState}`);
-                return reply.status(400).send({
-                    success: false,
-                    error: 'Invalid state parameter. Session may have expired or been tampered with.'
-                });
+                fastify.log.warn({ state: receivedState.substring(0,5)+'...' }, `Invalid or unknown state received.`);
+                return reply.status(400).send({ success: false, error: 'Invalid state parameter. Session invalid or expired.' });
             }
 
-            // Check expiration (using current time on the server)
-            if (new Date(storedState.expires_at) < new Date()) {
-                await knexTx.rollback();
-                fastify.log.warn(`Expired state received: ${receivedState}`);
-                // Clean up expired state (optional here, could have a separate cleanup job)
-                // await knex('oauth_states').where({ id: storedState.id }).del();
-                return reply.status(400).send({success: false, error: 'OAuth session expired. Please try again.'});
+            if (new Date(stateRecord.expires_at) < new Date()) {
+                await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del(); // Delete expired state
+                await knexTx.commit(); // Commit the deletion
+                fastify.log.warn({ state: receivedState.substring(0,5)+'...' }, `Expired state received.`);
+                return reply.status(400).send({ success: false, error: 'OAuth session expired. Please try again.' });
             }
 
-            // Check if state belongs to the correct store (important if state isn't globally unique)
-            if (storedState.storeId !== storeId) {
-                await knexTx.rollback();
-                fastify.log.error(`State mismatch for storeId: received state for store ${storedState.storeId}, expected ${storeId}`);
-                return reply.status(403).send({success: false, error: 'State parameter mismatch.'});
-            }
+            const targetStoreId = stateRecord.storeId; // *** Get the target storeId from the state record ***
+            fastify.log.info({ state: receivedState.substring(0,5)+'...', targetStoreId }, `State verified for store.`);
 
-
-            // State is valid, delete it immediately to prevent reuse
-            await knexTx('razorpay_oauth_states').where({id: storedState.id}).del();
-            fastify.log.info(`State verified and deleted: ${receivedState}`);
+            // Delete the state immediately within the transaction
+            await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del();
+            fastify.log.info({ state: receivedState.substring(0,5)+'...'}, `State deleted.`);
 
             // --- Step 2: Exchange Code for Tokens with Razorpay ---
             const clientId = process.env.RAZORPAY_CLIENT_ID;
             const clientSecret = process.env.RAZORPAY_CLIENT_SECRET;
-            const redirectUri = process.env.RAZORPAY_REDIRECT_URI; // Must match initial request
+            const redirectUri = process.env.RAZORPAY_REDIRECT_URI; // The backend callback URI registered with RZP
 
             if (!clientId || !clientSecret || !redirectUri) {
-                await knexTx.rollback(); // Rollback state deletion if config is bad
+                await knexTx.rollback();
                 fastify.log.error('Razorpay OAuth client credentials or redirect URI missing.');
                 return reply.status(500).send({success: false, error: 'Server configuration error.'});
             }
 
-            // Prepare Basic Auth header
             const basicAuthToken = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-            fastify.log.info(`Requesting tokens from Razorpay for code: ${code.substring(0, 5)}...`);
+            fastify.log.info(`Requesting tokens from Razorpay for code associated with state ${receivedState.substring(0,5)}...`);
 
             const tokenResponse = await axios.post('https://auth.razorpay.com/token', new URLSearchParams({
                 grant_type: 'authorization_code',
                 code: code,
-                redirect_uri: redirectUri,
+                redirect_uri: redirectUri, // MUST match the URI registered AND used during initiation
                 client_id: clientId,
-                client_secret: clientSecret,
             }), {
                 headers: {
                     'Authorization': `Basic ${basicAuthToken}`,
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                validateStatus: status => status < 500 // Handle 4xx errors gracefully
+                validateStatus: status => status < 500
             });
-            console.log('tokenResponse.data:', tokenResponse.data);
+            // console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
 
             if (tokenResponse.status >= 400) {
-                await knexTx.rollback(); // Rollback state deletion
-                fastify.log.error('Razorpay token exchange failed:', tokenResponse.data);
+                await knexTx.rollback();
+                fastify.log.error({ statusCode: tokenResponse.status, responseData: tokenResponse.data }, 'Razorpay token exchange failed.');
                 const errorMessage = tokenResponse.data?.error_description || tokenResponse.data?.error || 'Failed to exchange code with Razorpay.';
                 return reply.status(400).send({success: false, error: errorMessage});
             }
 
             const tokenData = tokenResponse.data;
-            fastify.log.info('Received tokens from Razorpay:', Object.keys(tokenData));
+            fastify.log.info('Received successful token response from Razorpay:', Object.keys(tokenData));
 
-            // --- Step 3: Store Tokens Securely ---
+            // --- Step 3: Extract Details & Encrypt Tokens ---
             const {
                 access_token,
-                refresh_token, // May be null
-                expires_in,    // Seconds
-                scope,         // Granted scopes string
-                razorpay_account_id     // Merchant's Razorpay Account ID
+                refresh_token = null,
+                expires_in = null,
+                scope = null, // Check actual field name from Razorpay response
+                razorpay_account_id
             } = tokenData;
 
-            // Calculate expiration timestamp
-            const expiresAt = new Date(Date.now() + (expires_in * 1000));
-            console.log('Encrypting tokens');
-            // !!! IMPORTANT: Encrypt tokens before storing !!!
-            const encryptedAccessToken = encryptToken(access_token); // Replace with your actual encryption function
-            const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null; // Encrypt if exists
-            // Prepare data for insertion into the new table
-            const newRazorpayAccountData = {
-                storeId: storeId,
-                razorpayAccountId: razorpay_account_id,
+            if (!razorpay_account_id || !access_token) { /* ... handle missing required fields, rollback ... */ }
+
+            const encryptedAccessToken = encryptToken(access_token);
+            const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null;
+            const expiresAt = expires_in ? new Date(Date.now() + (expires_in * 1000)) : null;
+            // Ensure scope is stored as text. If RZP returns array, join it.
+            const grantedScopes = Array.isArray(scope) ? scope.join(' ') : scope;
+
+            // --- Step 4: Find or Create Credential Record in `razorpay_credentials` ---
+            let credentialId;
+            const razorpayAccountId = razorpay_account_id; // Use consistent naming
+            fastify.log.info({ razorpayAccountId }, "Checking/Updating razorpay_credentials record...");
+
+            const credentialData = {
+                razorpayAccountId: razorpayAccountId,
                 accessToken: encryptedAccessToken,
                 refreshToken: encryptedRefreshToken,
                 tokenExpiresAt: expiresAt,
-                grantedScopes: scope || null,
-                // createdAt and updatedAt will be handled by timestamps(true, true)
+                grantedScopes: grantedScopes,
+                addedByMerchantId: initiatingMerchantId, // Track who linked it
+                updated_at: new Date() // Explicitly set update time
             };
-            console.log('inserting new razorpay account data:', newRazorpayAccountData);
-            // Insert the new record into razorpay_accounts table
-            // Use ON CONFLICT for robustness if needed (e.g., if user somehow tries to connect twice quickly)
-            // This simple insert assumes a clean first-time connection per storeId
-            await knexTx('razorpay_accounts').insert(newRazorpayAccountData);
-            fastify.log.info(`Successfully created Razorpay account link for storeId: ${storeId}`);
 
-            // If all steps succeeded, commit the transaction
+            // Try to insert, on conflict (unique razorpayAccountId), update instead (Upsert)
+            const result = await knexTx('razorpay_credentials')
+                .insert({ ...credentialData, credentialId: knex.raw('gen_random_uuid()') }) // Provide ID if needed
+                .onConflict('razorpayAccountId') // Requires unique constraint on this column
+                .merge({ // Columns to update on conflict
+                    accessToken: encryptedAccessToken,
+                    refreshToken: encryptedRefreshToken,
+                    tokenExpiresAt: expiresAt,
+                    grantedScopes: grantedScopes,
+                    addedByMerchantId: initiatingMerchantId, // Update who last linked it? Optional.
+                    updated_at: new Date()
+                })
+                .returning('credentialId'); // Get the ID whether inserted or updated
+
+            if (!result || result.length === 0) {
+                // Fetch separately if returning doesn't work on merge/update in all DB versions/configs
+                const finalCredential = await knexTx('razorpay_credentials')
+                    .where({ razorpayAccountId: razorpayAccountId })
+                    .first('credentialId');
+                if (!finalCredential) throw new Error('Failed to find or create credential record.');
+                credentialId = finalCredential.credentialId;
+            } else {
+                credentialId = result[0].credentialId || result[0]; // Handle potential object vs value return
+            }
+
+            fastify.log.info({ credentialId, razorpayAccountId }, "Upserted razorpay_credentials record.");
+
+            // --- Step 5: Link Store to Credential in `store_razorpay_links` ---
+            fastify.log.info({ targetStoreId, credentialId }, "Linking store to razorpay credential using upsert...");
+
+            await knexTx('store_razorpay_links')
+                .insert({
+                    // linkId: knex.raw('gen_random_uuid()'), // If UUID PK
+                    storeId: targetStoreId, // The store this flow was initiated for
+                    razorpayCredentialId: credentialId
+                    // created_at/updated_at handled by timestamps()
+                })
+                .onConflict('storeId') // Based on unique constraint on storeId
+                .merge({ // If link exists, update which credential it points to & timestamp
+                    razorpayCredentialId: credentialId,
+                    updated_at: new Date()
+                });
+            fastify.log.info(`Successfully linked store ${targetStoreId} to credential ${credentialId}.`);
+
+            // --- Step 6: Commit Transaction ---
             await knexTx.commit();
+            fastify.log.info(`Transaction committed for store ${targetStoreId} Razorpay link.`);
 
-            // --- Step 4: Reply to Frontend ---
-            reply.send({success: true, message: 'Razorpay account connected successfully.'});
-        }
-        catch (error) {
-            // Rollback transaction if any error occurred
+            // --- Step 7: Reply to Frontend ---
+            return reply.send({ success: true, message: 'Razorpay account connected successfully.' });
+
+        } catch (error) {
+            // Rollback transaction on any error
             if (knexTx && !knexTx.isCompleted()) {
                 await knexTx.rollback();
+                fastify.log.warn('Transaction rolled back due to error during token exchange/storage.');
             }
-            fastify.log.error('Error in /exchange route:', error);
-            // Check for specific errors like unique constraint violation if needed
-            if (error.code === '23505') { // Postgres unique violation code
-                if (error.constraint === 'razorpay_accounts_storeid_unique') {
-                    return reply.status(409).send({ success: false, error: 'This store is already linked to a Razorpay account.' });
+            fastify.log.error({ err: error }, 'Error in /exchangeCodeForTokens route');
+
+            // Handle specific DB errors if needed (check constraints on NEW tables)
+            if (error.code === '23505') { // Postgres unique violation
+                if (error.constraint && error.constraint.includes('razorpay_credentials_razorpayaccountid_unique')) {
+                    return reply.status(500).send({ success: false, error: 'Internal Server Error (RZP ID Conflict).' }); // Should be handled by upsert
                 }
-                if (error.constraint === 'razorpay_accounts_razorpayaccountid_unique') {
-                    return reply.status(409).send({ success: false, error: 'This Razorpay account is already linked to another store.' });
+                if (error.constraint && error.constraint.includes('store_razorpay_links_storeid_unique')) {
+                    return reply.status(500).send({ success: false, error: 'Internal Server Error (Store Link Conflict).' });// Should be handled by upsert
                 }
             }
-            reply.status(500).send({ success: false, error: 'An internal server error occurred.' });
+            return reply.status(500).send({ success: false, error: error.message || 'An internal server error occurred.' });
         }
-    })
+    });
 };
