@@ -7,6 +7,7 @@ exports.up = async function (knex) {
         table.uuid('merchantId').primary();
         table.string('fullName').notNullable();
         table.string('phone').unique().notNullable();
+        table.boolean('isPlatformMerchant').    notNullable().defaultTo(false).index();
         table.timestamps(true, true);
     });
 
@@ -22,6 +23,7 @@ exports.up = async function (knex) {
         table.decimal('rating').defaultTo(0);
         table.integer('numberOfRatings').notNullable().defaultTo(0);
         table.boolean("isActive").defaultTo(false);
+        table.boolean('isPlatformOwned').notNullable().defaultTo(false).index();
         table.timestamps(true, true);
     });
 

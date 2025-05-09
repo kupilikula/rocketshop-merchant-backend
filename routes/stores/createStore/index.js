@@ -5,8 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
-
-        const { storeId, storeName, storeHandle, storeDescription, storeTags, storeSettings } = request.body;
+        const logger = fastify.log;
+        const { storeId, storeName, storeHandle, storeDescription, storeTags, storeSettings, isPlatformOwned } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
         if (!storeName || !storeHandle || !storeDescription || !storeSettings) {
@@ -19,6 +19,35 @@ module.exports = async function (fastify, opts) {
         }
 
         try {
+            // --- Check Merchant Permission to create Platform Stores ---
+            const merchant = await knex('merchants')
+                .select('isPlatformMerchant')
+                .where('merchantId', merchantId)
+                .first();
+
+            if (!merchant) {
+                logger.error({ merchantId }, "Authenticated merchantId not found in merchants table.");
+                return reply.status(403).send({ error: 'Forbidden: Invalid merchant account.' });
+            }
+
+            const canCreatePlatformStore = merchant.isPlatformMerchant;
+            logger.info({ merchantId, canCreatePlatformStore }, "Checked merchant platform store permission.");
+
+            // Determine the actual ownership value based on permission and request
+            let finalIsPlatformOwned = false; // Default to false
+            if (canCreatePlatformStore && isPlatformOwned === true) {
+                // Allow platform ownership ONLY if requested AND permitted
+                finalIsPlatformOwned = true;
+                logger.info({ merchantId, storeId }, "Platform merchant creating platform-owned store.");
+            } else if (!canCreatePlatformStore && isPlatformOwned === true) {
+                // If a non-platform merchant tries to set the flag, ignore it and log
+                logger.warn({ merchantId, requestedIsPlatformOwned: true }, "Non-platform merchant attempted to create a platform-owned store. Forcing ownership to false.");
+                // finalIsPlatformOwned remains false
+            }
+            // Otherwise, finalIsPlatformOwned remains false (either requested false or non-platform merchant)
+            logger.info({ merchantId, storeId, finalIsPlatformOwned }, "Determined final isPlatformOwned status for new store.");
+
+
             // Check if storeId or storeHandle already exists
             const existingStore = await knex('stores')
                 .where('storeId', storeId)
@@ -40,6 +69,7 @@ module.exports = async function (fastify, opts) {
                         storeLogoImage: null,
                         storeTags: JSON.stringify(storeTags || []),
                         isActive: false,
+                        isPlatformOwned: finalIsPlatformOwned,
                         created_at: knex.fn.now(),
                     })
                     .returning('*');
