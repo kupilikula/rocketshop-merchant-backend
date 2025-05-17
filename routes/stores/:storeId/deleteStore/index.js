@@ -13,7 +13,7 @@ const s3Client = new S3Client({
     },
 });
 
-const BUCKET_NAME = 'rocketshop-media';
+const BUCKET_NAME = process.env.SPACES_BUCKET_NAME;
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
