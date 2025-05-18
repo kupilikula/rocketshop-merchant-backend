@@ -30,7 +30,7 @@ exports.seed = async function (knex) {
         return {
             merchantId: faker.string.uuid(),
             fullName: faker.person.fullName(),
-            phone: faker.phone.number({ style: 'international' }).slice(1),
+            phone: faker.phone.number({ style: 'international' }),
             created_at,
             updated_at,
         };
@@ -448,7 +448,7 @@ exports.seed = async function (knex) {
             customerHandle: faker.internet.username(), // Random customer handle
             fullName: faker.person.fullName(),
             email: faker.internet.email(),
-            phone: faker.phone.number({ style: 'international' }).slice(1),
+            phone: faker.phone.number({ style: 'international' }),
             created_at,
             updated_at,
         };
@@ -557,7 +557,7 @@ exports.seed = async function (knex) {
                 customerId: customer.customerId,
                 type: 'OTHER',
                 fullName: faker.person.fullName(),
-                phone: faker.phone.number({ style: 'international' }).slice(1),
+                phone: faker.phone.number({ style: 'international' }),
                 isDefaultRecipient: false,
                 created_at,
                 updated_at,
