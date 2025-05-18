@@ -8,8 +8,8 @@ exports.up = async function (knex) {
         table.string('fullName').notNullable();
         table.string('phone').unique().nullable().defaultTo(null);
         table.string("email").unique().nullable().defaultTo(null);
-        table.check('phone IS NOT NULL OR email IS NOT NULL', null, 'merchants_phone_or_email_required');
-        table.boolean('isPlatformMerchant').    notNullable().defaultTo(false).index();
+        table.check('phone IS NOT NULL OR email IS NOT NULL', [], 'merchants_phone_or_email_required');
+        table.boolean('isPlatformMerchant').notNullable().defaultTo(false).index();
         table.timestamps(true, true);
     });
 
@@ -112,7 +112,7 @@ exports.up = async function (knex) {
         table.string("fullName").notNullable();
         table.string("email").nullable().unique().defaultTo(null);
         table.string("phone").nullable().unique().defaultTo(null);
-        table.check('phone IS NOT NULL OR email IS NOT NULL', null, 'customers_phone_or_email_required');
+        table.check('phone IS NOT NULL OR email IS NOT NULL', [], 'customers_phone_or_email_required');
         table.timestamps(true, true);
     });
 
@@ -167,7 +167,7 @@ exports.up = async function (knex) {
         table.check(`
             (identifier_type = 'phone' AND phone IS NOT NULL) OR
             (identifier_type = 'email' AND email IS NOT NULL)
-        `, null, 'otp_verification_identifier_consistency');
+        `, [], 'otp_verification_identifier_consistency');
         table.string('otp', 10).notNullable();
         table.string('context', 50).notNullable();
         table.enum('app', ['marketplace', 'merchant']).notNullable();
