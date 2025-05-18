@@ -6,7 +6,9 @@ exports.up = async function (knex) {
     await knex.schema.createTable('merchants', (table) => {
         table.uuid('merchantId').primary();
         table.string('fullName').notNullable();
-        table.string('phone').unique().notNullable();
+        table.string('phone').unique().nullable().defaultTo(null);
+        table.string("email").unique().nullable().defaultTo(null);
+        table.check('phone IS NOT NULL OR email IS NOT NULL', null, 'merchants_phone_or_email_required');
         table.boolean('isPlatformMerchant').    notNullable().defaultTo(false).index();
         table.timestamps(true, true);
     });
@@ -108,8 +110,9 @@ exports.up = async function (knex) {
         table.uuid("customerId").primary();
         table.string("customerHandle").unique().notNullable();
         table.string("fullName").notNullable();
-        table.string("email").nullable();
-        table.string("phone").notNullable().unique();
+        table.string("email").nullable().unique().defaultTo(null);
+        table.string("phone").nullable().unique().defaultTo(null);
+        table.check('phone IS NOT NULL OR email IS NOT NULL', null, 'customers_phone_or_email_required');
         table.timestamps(true, true);
     });
 
@@ -158,18 +161,19 @@ exports.up = async function (knex) {
 
     await knex.schema.createTable('otp_verification', function(table) {
         table.increments('otpId').primary();
-        table.string('phone', 15).notNullable().index(); // E.164 international format recommended
+        table.string('phone', 15).nullable().index(); // E.164 international format recommended
+        table.string('email').nullable().index();
+        table.enum('identifier_type', ['phone', 'email']).notNullable().defaultTo('phone'); // Default for existing records
+        table.check(`
+            (identifier_type = 'phone' AND phone IS NOT NULL) OR
+            (identifier_type = 'email' AND email IS NOT NULL)
+        `, null, 'otp_verification_identifier_consistency');
         table.string('otp', 10).notNullable();
         table.string('context', 50).notNullable();
         table.enum('app', ['marketplace', 'merchant']).notNullable();
         table.boolean('isVerified').defaultTo(false);
         table.integer('attemptCount').defaultTo(0);
         table.timestamp('created_at').defaultTo(knex.fn.now());
-
-        // Optional: useful for analytics / abuse tracking
-        // table.string('request_id'); // If using a 3rd party OTP provider
-        // table.string('ip_address');
-        // table.string('user_agent');
     });
 
     // Create `deliveryAddresses` table
