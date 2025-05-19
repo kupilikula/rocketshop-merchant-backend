@@ -60,7 +60,7 @@ module.exports = async function (fastify, opts) {
         // The checks for these conditions will happen below.
         const otpRecord = await otpQuery.first();
 
-        fastify.log.info({ msg: 'OTP Verification Attempt', identifier, type, context, app, foundRecord: !!otpRecord });
+        fastify.log.info({ msg: 'OTP Verification Attempt', identifier, type, context, foundRecord: !!otpRecord });
 
         // 4. Validate OTP
         if (!otpRecord) {
