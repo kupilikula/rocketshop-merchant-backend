@@ -165,7 +165,7 @@ module.exports = async function (fastify, opts) {
             try {
                 const message = getOtpText(otp, context); // getOtpText might use context
                 if (effectiveType === 'email') {
-                    await emailService.sendOtpEmail(effectiveIdentifier, message);
+                    // await emailService.sendOtpEmail(effectiveIdentifier, message);
                 } else if (effectiveType==='phone'){
                     await smsService.sendSMS(effectiveIdentifier.slice(1), message);
                 }
