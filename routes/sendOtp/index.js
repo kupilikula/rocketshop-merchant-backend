@@ -44,7 +44,7 @@ module.exports = async function (fastify, opts) {
             return reply.status(401).send({ error: 'Unauthorized: This action requires authentication.' });
         }
 
-        const requestingMerchantId = request.user.merchantId;
+        const requestingMerchantId = request.user?.merchantId;
 
         try {
             // Context-specific logic
