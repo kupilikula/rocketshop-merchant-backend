@@ -167,7 +167,7 @@ module.exports = async function (fastify, opts) {
                 if (effectiveType === 'email') {
                     // await emailService.sendOtpEmail(effectiveIdentifier, message);
                 } else if (effectiveType==='phone'){
-                    await smsService.sendSMS(effectiveIdentifier.slice(1), message);
+                    // await smsService.sendSMS(effectiveIdentifier.slice(1), message);
                 }
             } catch (sendError) {
                 console.error({ msg: 'Failed to send OTP message', error: sendError, identifier: effectiveIdentifier, type: effectiveType });
