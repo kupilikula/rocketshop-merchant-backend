@@ -68,7 +68,7 @@ module.exports = async function (fastify, opts) {
 
     if (!authHeader) {
       if (isPublic) return; // Allow unauthenticated access to public routes
-      return reply.status(401).send({ error: 'Unauthorized: Missing token' });
+      return reply.status(401).send({ error: 'Unauthorized: Missing token', tryTokenRefresh: true });
     }
 
     const token = authHeader.split(' ')[1]; // Extract token from Bearer header
@@ -81,7 +81,7 @@ module.exports = async function (fastify, opts) {
         console.log('No valid JWT on public route, continuing anonymously');
         return;
       } else {
-        return reply.status(401).send({ error: 'Unauthorized: Invalid token' });
+        return reply.status(401).send({ error: 'Unauthorized: Invalid token', tryTokenRefresh: true });
       }
     }
   });
