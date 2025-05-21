@@ -17,7 +17,8 @@ function initMessaging(io, app) {
             // Extract the token from the `auth` object
             const token = socket.handshake.auth.accessToken;
             const storeId = socket.handshake.auth.storeId; // undefined for customers
-
+            console.log('Backend Socket Token:', token);
+            console.log('Backend Socket StoreId:', storeId);
             if (!token) {
                 console.log("No token provided for WebSocket connection");
                 return next(new Error("Unauthorized"));
