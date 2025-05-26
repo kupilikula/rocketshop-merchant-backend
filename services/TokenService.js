@@ -23,7 +23,10 @@ const TokenService = {
 
     verifyAccessToken(token) {
         try {
-            return jwt.verify(token, JWT_SECRET);
+            console.log("Verify access token, secret:", JWT_SECRET);
+            let r = jwt.verify(token, JWT_SECRET);
+            console.log("Verify access token, result:", r);
+            return r;
         } catch (error) {
             throw new Error('Invalid or expired token:', error);
         }
