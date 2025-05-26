@@ -25,7 +25,7 @@ const TokenService = {
         try {
             return jwt.verify(token, JWT_SECRET);
         } catch (error) {
-            throw new Error('Invalid or expired token');
+            throw new Error('Invalid or expired token:', error);
         }
     },
 
@@ -33,7 +33,7 @@ const TokenService = {
         try {
             return jwt.verify(token, JWT_REFRESH_SECRET);
         } catch (error) {
-            throw new Error('Invalid or expired token');
+            throw new Error('Invalid or expired token:', error);
         }
     },
 
