@@ -5,6 +5,7 @@ const { generateOtp } = require("../../utils/generateOtp");
 const { OTP_PUBLIC_CONTEXTS, OTP_PRIVATE_CONTEXTS } = require("../../utils/OtpContexts");
 const {getOtpText} = require("../../utils/getOtpText");
 const smsService = require("../../services/SMSService");
+const emailService = require("../../services/EmailService");
 const {isValidEmail, isValidE164Phone} = require("../../utils/validateIdentifier"); // Import the class instead
 
 
@@ -163,9 +164,8 @@ module.exports = async function (fastify, opts) {
         console.log(`Sending OTP ${otp} to ${effectiveType} ${effectiveIdentifier} for context ${context}`);
 
             try {
-                const message = getOtpText(otp, context); // getOtpText might use context
                 if (effectiveType === 'email') {
-                    // await emailService.sendOtpEmail(effectiveIdentifier, message);
+                    await emailService.sendOtpEmail(effectiveIdentifier, otp);
                 } else if (effectiveType==='phone'){
                     // await smsService.sendSMS(effectiveIdentifier.slice(1), message);
                 }
