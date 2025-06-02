@@ -341,6 +341,7 @@ exports.up = async function (knex) {
         table.string("ruleName").notNullable();
         table.jsonb("conditions").notNullable().defaultTo('[]');
         table.boolean("groupingEnabled").notNullable().defaultTo(false);
+        table.boolean("is_international_shipping_enabled").notNullable().defaultTo(false);
         table.boolean("isActive").defaultTo(true);
         table.timestamps(true, true);
 

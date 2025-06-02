@@ -20,6 +20,7 @@ module.exports = async function (fastify, opts) {
                 'sr.ruleName',
                 'sr.conditions',
                 'sr.groupingEnabled',
+                'sr.is_international_shipping_enabled',
                 'sr.isActive',
                 'sr.created_at',
                 'sr.updated_at'

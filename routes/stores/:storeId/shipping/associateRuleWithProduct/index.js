@@ -36,6 +36,7 @@ module.exports = async function (fastify, opts) {
                         storeId,
                         ruleName: 'No Shipping',
                         groupingEnabled: true,
+                        is_international_shipping_enabled: true,
                         isActive: true,
                         conditions: JSON.stringify([
                             {

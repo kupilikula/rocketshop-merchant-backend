@@ -106,6 +106,7 @@ module.exports = async function (fastify, opts) {
                                 ruleName: shippingRuleDraft.ruleName,
                                 conditions: JSON.stringify(shippingRuleDraft.conditions),
                                 groupingEnabled: shippingRuleDraft.groupingEnabled,
+                                is_international_shipping_enabled: shippingRuleDraft.is_international_shipping_enabled,
                                 isActive: true,
                                 updated_at: new Date(),
                             });
@@ -118,6 +119,7 @@ module.exports = async function (fastify, opts) {
                         ruleName: shippingRuleDraft.ruleName,
                         conditions: JSON.stringify(shippingRuleDraft.conditions),
                         groupingEnabled: false, // forced off for product-specific rules
+                        is_international_shipping_enabled: shippingRuleDraft.is_international_shipping_enabled || false,
                         isActive: true,
                         created_at: new Date(),
                         updated_at: new Date(),

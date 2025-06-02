@@ -10,6 +10,7 @@ module.exports = async function (fastify, opts) {
             ruleName,
             conditions,
             groupingEnabled,
+            is_international_shipping_enabled,
             isActive
         } = request.body;
 
@@ -45,6 +46,7 @@ module.exports = async function (fastify, opts) {
                 storeId,
                 ruleName,
                 groupingEnabled: groupingEnabled || false,
+                is_international_shipping_enabled: is_international_shipping_enabled || false,
                 conditions: JSON.stringify(conditions),
                 isActive: isActive !== false,
                 created_at: knex.fn.now(),

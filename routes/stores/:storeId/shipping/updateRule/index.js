@@ -8,6 +8,7 @@ module.exports = async function (fastify, opts) {
         const {
             ruleName,
             groupingEnabled,
+            is_international_shipping_enabled,
             isActive,
             conditions,
         } = request.body;
@@ -30,6 +31,7 @@ module.exports = async function (fastify, opts) {
                 .update({
                     ruleName,
                     groupingEnabled: groupingEnabled ?? existing.groupingEnabled,
+                    is_international_shipping_enabled: is_international_shipping_enabled ?? existing.is_international_shipping_enabled,
                     isActive: isActive ?? existing.isActive,
                     conditions: JSON.stringify(conditions),
                     updated_at: new Date(),
