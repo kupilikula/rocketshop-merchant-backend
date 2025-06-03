@@ -95,7 +95,7 @@ const TokenService = {
                 httpOnly: true, // Prevent client-side access
                 secure: true, // Use HTTPS in production
                 path: '/auth', // Restrict usage
-                sameSite: 'Strict', // Prevent CSRF attacks
+                sameSite: 'None', // Prevent CSRF attacks
             })
             .send({ accessToken, merchant, stores });
 
