@@ -7,7 +7,7 @@ const {decode} = require("jsonwebtoken");
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
         const refreshToken = request.cookies.refreshToken; // Read token from HTTP-only cookie
-
+        console.log('request.cookies:', request.cookies);
         if (!refreshToken) {
             return reply.status(401).send({ error: 'Unauthorized: Missing refresh token' });
         }
