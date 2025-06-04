@@ -1,22 +1,60 @@
 'use strict'
 
-const knex = require("@database/knexInstance");
+const knex = require("@database/knexInstance"); // Assuming this is your Knex instance path
 const { v4: uuidv4 } = require('uuid');
+
+// It's a good practice to have your Razorpay category data available for validation
+// For example, import it if you have it in a shared constants file:
+// const { business_types, categories } = require('../../shared/constants/razorpayData');
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
         const logger = fastify.log;
-        const { storeId, storeName, storeHandle, storeDescription, storeTags, storeSettings, isPlatformOwned } = request.body;
+        const {
+            storeId,
+            storeName,
+            storeHandle,
+            storeDescription,
+            storeTags,
+            storeSettings, // Contains defaultGstRate, defaultGstInclusive
+            legalBusinessName,
+            storeEmail,
+            storePhone,
+            businessType,
+            category,
+            subCategory, // Can be null or empty string
+            registeredAddress,
+            isPlatformOwned
+        } = request.body;
         const merchantId = request.user.merchantId; // From token payload
 
-        if (!storeName || !storeHandle || !storeDescription || !storeSettings) {
-            return reply.status(400).send({ error: 'Missing required fields' });
+        // --- Basic Validation ---
+        if (!storeId || !storeName || !storeHandle || !storeDescription || !storeSettings ||
+            !legalBusinessName || !storeEmail || !storePhone || !businessType || !category || !registeredAddress) {
+            // Note: subCategory is not checked here as it can be optional
+            // registeredAddress being an empty object {} might pass; ensure frontend sends valid structure or null
+            return reply.status(400).send({ error: 'Missing required store or business detail fields' });
         }
 
-        const { defaultGstRate, defaultGstInclusive } = storeSettings;
-        if (defaultGstRate === undefined || defaultGstInclusive === undefined) {
-            return reply.status(400).send({ error: 'Missing GST settings' });
+        if (typeof registeredAddress !== 'object' || registeredAddress === null || Object.keys(registeredAddress).length === 0) {
+            return reply.status(400).send({ error: 'Registered address must be a valid object with address details.' });
         }
+        // Add more specific validation for address fields if needed, e.g., address.street1
+
+        const { defaultGstRate, defaultGstInclusive } = storeSettings;
+        if (defaultGstRate === undefined || defaultGstRate === null || defaultGstInclusive === undefined) {
+            return reply.status(400).send({ error: 'Missing or invalid GST settings (defaultGstRate, defaultGstInclusive)' });
+        }
+
+        // TODO: Advanced Validation (Recommended)
+        // - Validate storeEmail format (e.g., using a regex or library)
+        // - Validate storePhone format
+        // - Validate businessType, category, subCategory against your predefined lists
+        //   (e.g., from the razorpayData.js file if shared with the backend)
+        //   Example check: if (!business_types.includes(businessType)) { /* error */ }
+        //   Example check: if (!razorpayCategoriesData[category]) { /* error */ }
+        //   Example check: if (subCategory && razorpayCategoriesData[category] && !razorpayCategoriesData[category].subcategories.includes(subCategory)) { /* error */ }
+
 
         try {
             // --- Check Merchant Permission to create Platform Stores ---
@@ -31,31 +69,27 @@ module.exports = async function (fastify, opts) {
             }
 
             const canCreatePlatformStore = merchant.isPlatformMerchant;
-            logger.info({ merchantId, canCreatePlatformStore }, "Checked merchant platform store permission.");
-
-            // Determine the actual ownership value based on permission and request
-            let finalIsPlatformOwned = false; // Default to false
+            let finalIsPlatformOwned = false;
             if (canCreatePlatformStore && isPlatformOwned === true) {
-                // Allow platform ownership ONLY if requested AND permitted
                 finalIsPlatformOwned = true;
-                logger.info({ merchantId, storeId }, "Platform merchant creating platform-owned store.");
             } else if (!canCreatePlatformStore && isPlatformOwned === true) {
-                // If a non-platform merchant tries to set the flag, ignore it and log
                 logger.warn({ merchantId, requestedIsPlatformOwned: true }, "Non-platform merchant attempted to create a platform-owned store. Forcing ownership to false.");
-                // finalIsPlatformOwned remains false
             }
-            // Otherwise, finalIsPlatformOwned remains false (either requested false or non-platform merchant)
             logger.info({ merchantId, storeId, finalIsPlatformOwned }, "Determined final isPlatformOwned status for new store.");
 
-
-            // Check if storeId or storeHandle already exists
+            // --- Check if storeId or storeHandle already exists ---
             const existingStore = await knex('stores')
                 .where('storeId', storeId)
                 .orWhere('storeHandle', storeHandle)
                 .first();
 
             if (existingStore) {
-                return reply.status(400).send({error: 'Store with this ID or Handle already exists'});
+                if (existingStore.storeId === storeId) {
+                    return reply.status(409).send({ error: `Store with ID ${storeId} already exists` }); // 409 Conflict
+                }
+                if (existingStore.storeHandle === storeHandle) {
+                    return reply.status(409).send({ error: `Store with handle @${storeHandle} already exists` }); // 409 Conflict
+                }
             }
 
             const store = await knex.transaction(async (trx) => {
@@ -66,39 +100,50 @@ module.exports = async function (fastify, opts) {
                         storeName,
                         storeHandle,
                         storeDescription,
-                        storeLogoImage: null,
-                        storeTags: JSON.stringify(storeTags || []),
-                        isActive: false,
+                        storeLogoImage: null, // Assuming logo is handled separately
+                        storeTags: JSON.stringify(storeTags || []), // Ensure it's a JSON string
+                        isActive: false, // New stores are inactive by default
                         isPlatformOwned: finalIsPlatformOwned,
-                        created_at: knex.fn.now(),
+                        // New fields
+                        legalBusinessName,
+                        storeEmail,
+                        storePhone,
+                        businessType,
+                        category,
+                        subCategory: subCategory || null, // Store null if empty/undefined
+                        registeredAddress, // Knex handles JSONB object stringification
+                        // timestamps are handled by `table.timestamps(true, true);` if defaults are used
+                        // If you want to explicitly set them:
+                        // created_at: knex.fn.now(),
+                        // updated_at: knex.fn.now()
                     })
-                    .returning('*');
+                    .returning('*'); // Return all columns of the created store
 
                 // Insert into merchantStores (Admin)
                 await trx('merchantStores')
                     .insert({
                         merchantStoreId: uuidv4(),
                         merchantId,
-                        storeId,
+                        storeId, // Use the storeId from the request body (which should be the PK)
                         merchantRole: 'Admin',
                         canReceiveMessages: true,
-                        created_at: knex.fn.now(),
+                        // created_at: knex.fn.now(), // if not handled by DB default or Knex default
                     });
 
-                // Insert default GST settings
+                // Insert default GST settings into storeSettings table
                 await trx('storeSettings')
                     .insert({
-                        storeId,
+                        storeId, // Use the storeId from the request body
                         defaultGstRate,
                         defaultGstInclusive,
-                        created_at: knex.fn.now(),
+                        // created_at: knex.fn.now(), // if not handled by DB default or Knex default
                     });
 
                 // Insert default merchant notification preferences
                 await trx('merchantNotificationPreferences')
                     .insert({
                         merchantId,
-                        storeId,
+                        storeId, // Use the storeId from the request body
                         muteAll: false,
                         newOrders: true,
                         chatMessages: true,
@@ -107,19 +152,22 @@ module.exports = async function (fastify, opts) {
                         miscellaneous: true,
                         ratingsAndReviews: true,
                         newFollowers: true,
-                        created_at: knex.fn.now(),
-                        updated_at: knex.fn.now(),
+                        // created_at: knex.fn.now(), // if not handled by DB default or Knex default
+                        // updated_at: knex.fn.now(), // if not handled by DB default or Knex default
                     });
 
                 return createdStore;
             });
 
-            return reply.status(200).send({
-                store
-            });
+            logger.info({ storeId: store.storeId, merchantId }, "Store created successfully");
+            return reply.status(201).send({ store }); // 201 Created status
         } catch(err) {
-          console.error('Error creating store:', err);
-          return reply.status(500).send({ error: 'Failed to create store' });
+            logger.error({ err, body: request.body }, 'Error creating store');
+            // Check for specific Knex errors, like unique constraint violations if not caught above
+            if (err.routine === '_bt_check_unique') { // Example for PostgreSQL unique violation
+                return reply.status(409).send({ error: 'A store with similar unique details already exists.' });
+            }
+            return reply.status(500).send({ error: 'Failed to create store due to an internal error.' });
         }
     });
 }

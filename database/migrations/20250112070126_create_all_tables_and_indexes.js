@@ -24,6 +24,13 @@ exports.up = async function (knex) {
         table.jsonb("storeTags").defaultTo("[]");
         table.decimal('rating').defaultTo(0);
         table.integer('numberOfRatings').notNullable().defaultTo(0);
+        table.string('legalBusinessName').notNullable(); // Or .notNullable() if always required at creation
+        table.string('storeEmail').notNullable();      // Or .notNullable()
+        table.string('storePhone').notNullable();      // Or .notNullable()
+        table.string('businessType').notNullable();    // Or .notNullable()
+        table.string('category').notNullable();        // Or .notNullable()
+        table.string('subCategory').notNullable();     // Sub-category can often be optional
+        table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
         table.boolean("isActive").defaultTo(false);
         table.boolean('isPlatformOwned').notNullable().defaultTo(false).index();
         table.timestamps(true, true);
