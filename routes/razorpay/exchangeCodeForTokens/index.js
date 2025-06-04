@@ -228,8 +228,8 @@ module.exports = async function (fastify) {
                                 },
                                 validateStatus: status => status < 500 // Handle 4xx as non-exceptions for detailed logging
                             });
-
-                            console.log('razorpay create linked account response :', JSON.stringify(linkedAccountResponse, null, 2));
+                            console.log('razorpay create linked account response status:', linkedAccountResponse.status);
+                            console.log('razorpay create linked account response :', JSON.stringify(linkedAccountResponse.data, null, 2));
                             if (linkedAccountResponse.status >= 200 && linkedAccountResponse.status < 300) {
                                 const linkedAccountData = linkedAccountResponse.data;
                                 const razorpayLinkedAccountId = linkedAccountData.id; // This is the 'la_...' ID
