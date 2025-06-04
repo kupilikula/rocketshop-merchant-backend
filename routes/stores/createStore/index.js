@@ -22,7 +22,7 @@ module.exports = async function (fastify, opts) {
             storePhone,
             businessType,
             category,
-            subCategory, // Can be null or empty string
+            subcategory, // Can be null or empty string
             registeredAddress,
             isPlatformOwned
         } = request.body;
@@ -31,7 +31,7 @@ module.exports = async function (fastify, opts) {
         // --- Basic Validation ---
         if (!storeId || !storeName || !storeHandle || !storeDescription || !storeSettings ||
             !legalBusinessName || !storeEmail || !storePhone || !businessType || !category || !registeredAddress) {
-            // Note: subCategory is not checked here as it can be optional
+            // Note: subcategory is not checked here as it can be optional
             // registeredAddress being an empty object {} might pass; ensure frontend sends valid structure or null
             return reply.status(400).send({ error: 'Missing required store or business detail fields' });
         }
@@ -49,11 +49,11 @@ module.exports = async function (fastify, opts) {
         // TODO: Advanced Validation (Recommended)
         // - Validate storeEmail format (e.g., using a regex or library)
         // - Validate storePhone format
-        // - Validate businessType, category, subCategory against your predefined lists
+        // - Validate businessType, category, subcategory against your predefined lists
         //   (e.g., from the razorpayData.js file if shared with the backend)
         //   Example check: if (!business_types.includes(businessType)) { /* error */ }
         //   Example check: if (!razorpayCategoriesData[category]) { /* error */ }
-        //   Example check: if (subCategory && razorpayCategoriesData[category] && !razorpayCategoriesData[category].subcategories.includes(subCategory)) { /* error */ }
+        //   Example check: if (subcategory && razorpayCategoriesData[category] && !razorpayCategoriesData[category].subcategories.includes(subcategory)) { /* error */ }
 
 
         try {
@@ -110,7 +110,7 @@ module.exports = async function (fastify, opts) {
                         storePhone,
                         businessType,
                         category,
-                        subCategory: subCategory || null, // Store null if empty/undefined
+                        subcategory: subcategory || null, // Store null if empty/undefined
                         registeredAddress, // Knex handles JSONB object stringification
                         // timestamps are handled by `table.timestamps(true, true);` if defaults are used
                         // If you want to explicitly set them:
