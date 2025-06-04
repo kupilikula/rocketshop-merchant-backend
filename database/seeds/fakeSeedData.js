@@ -81,7 +81,7 @@ exports.seed = async function (knex) {
             storePhone: fakerEN_IN.phone.number({ style: 'international' }),
             businessType: selectedBusinessType,
             category: selectedCategoryKey,
-            subCategory: selectedSubCategory, // Will be null if no subcategories or none selected
+            subcategory: selectedSubCategory, // Will be null if no subcategories or none selected
             registeredAddress: { // This will be automatically stringified by Knex for JSONB
                 street1: faker.location.streetAddress(false), // street name and building number
                 street2: faker.helpers.maybe(() => faker.location.secondaryAddress(), { probability: 0.4 }), // Optional

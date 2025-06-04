@@ -29,7 +29,7 @@ exports.up = async function (knex) {
         table.string('storePhone').notNullable();      // Or .notNullable()
         table.string('businessType').notNullable();    // Or .notNullable()
         table.string('category').notNullable();        // Or .notNullable()
-        table.string('subCategory').notNullable();     // Sub-category can often be optional
+        table.string('subcategory').nullable();     // Sub-category can often be optional
         table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
         table.boolean("isActive").defaultTo(false);
         table.boolean('isPlatformOwned').notNullable().defaultTo(false).index();
