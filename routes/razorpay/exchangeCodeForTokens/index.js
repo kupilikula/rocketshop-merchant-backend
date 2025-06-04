@@ -187,9 +187,6 @@ module.exports = async function (fastify) {
                         legal_business_name: storeProfile.legalBusinessName,
                         customer_facing_business_name: storeProfile.storeName,
                         type: "route",
-                        account_details: {
-                            beneficiary_account_id: razorpayAccountId // Merchant's RZP account ID from OAuth
-                        },
                         business_type: storeProfile.businessType,
                         profile: {
                             category: storeProfile.category,
