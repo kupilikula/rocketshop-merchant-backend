@@ -18,7 +18,7 @@ module.exports = async function (fastify) {
         // --- 1. Get Store ID & Validate Merchant Access ---
         // Assumes your authentication middleware adds 'user' object with 'merchantId'
         const merchantId = request.user?.merchantId;
-        const { storeId } = request.query;
+        const { storeId, platform, env } = request.query;
 
         // Validate input
         if (!merchantId) {
@@ -43,7 +43,8 @@ module.exports = async function (fastify) {
             fastify.log.info({ merchantId, storeId }, 'Store access verified for OAuth initiation.');
 
             // --- 2. Generate Secure State ---
-            const state = crypto.randomBytes(16).toString('hex');
+            const prefix = platform + '_' + env + '_';
+            const state = prefix + crypto.randomBytes(16).toString('hex');
             fastify.log.info({ state: state.substring(0, 5) + '...', storeId }, 'Generated OAuth state.'); // Log truncated state
 
             // --- 3. Calculate Expiration ---
@@ -57,7 +58,7 @@ module.exports = async function (fastify) {
                     storeId: storeId,
                     expires_at: expiresAt,
                 });
-                fastify.log.info({ state: state.substring(0, 5) + '...', storeId, expiresAt }, 'Stored OAuth state in DB.');
+                fastify.log.info({ state: state.substring(0, 10) + '...', storeId, expiresAt }, 'Stored OAuth state in DB.');
             } catch (dbError) {
                 fastify.log.error({ err: dbError, storeId }, 'Database error storing OAuth state.');
                 return reply.status(500).send({ error: 'Internal Server Error: Failed to initiate OAuth flow.' });
@@ -66,7 +67,7 @@ module.exports = async function (fastify) {
             // --- 5. Get Config from Environment Variables ---
             // Ensure these env vars are set correctly for the running environment (QA/Prod)
             const clientId = process.env.RAZORPAY_CLIENT_ID;
-            const redirectUri = process.env.RAZORPAY_REDIRECT_URI; // e.g., https://merchant.rocketshop.in/razorpay/authCallback
+            const redirectUri = process.env.RAZORPAY_REDIRECT_URI;
             const scopes = process.env.RAZORPAY_SCOPES;       // e.g., 'read_write'
 
             if (!clientId || !redirectUri || !scopes) {

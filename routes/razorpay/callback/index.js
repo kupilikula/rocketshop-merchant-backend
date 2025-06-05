@@ -1,65 +1,85 @@
-// routes/oauth/razorpayCallback.js (Example path)
+// routes/oauth/razorpayCallback.js
 'use strict';
 
-// App's custom scheme and the path you want the deep link handler to match
 const APP_SCHEME = 'rocketshopmerchant';
-const APP_CALLBACK_PATH = 'razorpay/callback'; // e.g., results in rocketshopmerchant://razorpay/callback
+const APP_DOMAIN_PATH = 'razorpay/callback'; // This is used as the "host" or "path" part in your app scheme URL
+const WEB_APP_CALLBACK_PATH = '/razorpay/callback'; // The actual path for your web app callback
 
 module.exports = async function (fastify) {
-
-    // This route path MUST match the Redirect URI registered with Razorpay
     fastify.get('/', async (request, reply) => {
-        // Use the Fastify instance logger
         const logger = fastify.log;
         const { code, state, error, error_description } = request.query;
 
         logger.info({ query: request.query }, "Received callback redirect from Razorpay.");
 
-        // --- Check for errors returned directly from Razorpay ---
+        if (!state) {
+            logger.error({ query: request.query }, "Critical: State parameter missing in Razorpay callback.");
+            // Cannot determine redirect target without state, return a generic error
+            return reply.code(400).send({ error: 'missing_state', error_description: 'State parameter is missing from the callback.' });
+        }
+
+        let determinedFrontendWebBaseUrl = null;
+        let isWebFlow = false;
+
+        // Determine if it's a web flow and the target base URL
+        if (state.startsWith('web_local_')) {
+            determinedFrontendWebBaseUrl = 'http://localhost:8081'; // Or your configured Expo dev port for web
+            isWebFlow = true;
+        } else if (state.startsWith('web_qa_')) {
+            determinedFrontendWebBaseUrl = 'https://qa.merchant.rocketshop.in';
+            isWebFlow = true;
+        } else if (state.startsWith('web_production_')) {
+            determinedFrontendWebBaseUrl = 'https://merchant.rocketshop.in';
+            isWebFlow = true;
+        } else if (state.startsWith('mobile_')) { // Explicitly check for mobile prefix
+            isWebFlow = false; // It's a mobile flow
+        } else {
+            // State doesn't match known web prefixes or the mobile prefix
+            logger.error({ state }, "Unrecognized state prefix received. Cannot determine redirect target.");
+            return reply.code(400).send({ error: 'invalid_state_prefix', error_description: 'State parameter has an unrecognized prefix.' });
+        }
+
+        let targetRedirectUrl; // This will hold the final URL string
+
+        // Prepare common query parameters to forward to the frontend
+        const paramsToForward = new URLSearchParams();
+        if (state) { // Always forward the state
+            paramsToForward.append('state', state);
+        }
+
         if (error) {
             logger.error({ error, error_description, state }, "Razorpay authorization failed.");
-            const appErrorUrl = new URL(`${APP_SCHEME}://${APP_CALLBACK_PATH}`);
-            appErrorUrl.searchParams.append('error', error);
+            paramsToForward.append('error', error);
             if (error_description) {
-                appErrorUrl.searchParams.append('error_description', error_description);
+                paramsToForward.append('error_description', error_description);
             }
-            if (state) { // Pass state back if available, for context
-                appErrorUrl.searchParams.append('state', state);
-            }
-            appErrorUrl.searchParams.append('status', 'error'); // Add status
-
-            const redirectTarget = appErrorUrl.toString();
-            logger.info(`Redirecting to App with error: ${redirectTarget}`);
-            // Perform the redirect back to the app
-            return reply.redirect(302, redirectTarget);
+            paramsToForward.append('status', 'error');
+        } else if (!code) { // `state` is confirmed to exist at this point
+            logger.error({ query: request.query }, "Callback from Razorpay missing 'code' on what should be a success.");
+            paramsToForward.append('error', 'missing_code');
+            paramsToForward.append('error_description', 'Required code parameter missing in Razorpay callback.');
+            paramsToForward.append('status', 'error');
+        } else {
+            // Successful authorization from Razorpay (code and state are present)
+            paramsToForward.append('code', code);
+            paramsToForward.append('status', 'success'); // Indicate success to frontend
         }
 
-        // --- Handle successful authorization (code and state expected) ---
-        if (!code || !state) {
-            // This shouldn't happen on success, but handle defensively
-            logger.error({ query: request.query }, "Callback from Razorpay missing code or state on success.");
-            const appErrorUrl = new URL(`${APP_SCHEME}://${APP_CALLBACK_PATH}`);
-            appErrorUrl.searchParams.append('error', 'missing_parameters');
-            appErrorUrl.searchParams.append('error_description', 'Required code or state missing in Razorpay callback.');
-            if (state) {
-                appErrorUrl.searchParams.append('state', state); // Include state if only code was missing
+        // Construct the final redirect URL based on flow type
+        if (isWebFlow) {
+            if (!determinedFrontendWebBaseUrl) { // Should not happen if isWebFlow is true due to above logic
+                logger.error({ state }, "Logic error: Web flow indicated but no base URL determined.");
+                return reply.code(500).send({ error: 'server_configuration_error', error_description: 'Could not determine web redirect URL.' });
             }
-            appErrorUrl.searchParams.append('status', 'error');
-
-            logger.info(`Redirecting to App with error: ${appErrorUrl.toString()}`);
-            return reply.redirect(302, appErrorUrl.toString());
+            const webAppUrl = new URL(WEB_APP_CALLBACK_PATH, determinedFrontendWebBaseUrl);
+            webAppUrl.search = paramsToForward.toString();
+            targetRedirectUrl = webAppUrl.toString();
+        } else {
+            // Mobile app flow
+            targetRedirectUrl = `${APP_SCHEME}://${APP_DOMAIN_PATH}?${paramsToForward.toString()}`;
         }
 
-        // --- Success: Construct the app scheme URL with code and state ---
-        const appSuccessUrl = new URL(`${APP_SCHEME}://${APP_CALLBACK_PATH}`);
-        appSuccessUrl.searchParams.append('code', code);
-        appSuccessUrl.searchParams.append('state', state);
-        appSuccessUrl.searchParams.append('status', 'success'); // Indicate success
-
-        const redirectTarget = appSuccessUrl.toString();
-        logger.info(`Redirecting to App successfully: ${redirectTarget}`);
-
-        // --- Issue the 302 Redirect to the App ---
-        return reply.redirect(302, redirectTarget);
+        logger.info(`Redirecting to frontend: ${targetRedirectUrl}`);
+        return reply.redirect(302, targetRedirectUrl);
     });
 };
