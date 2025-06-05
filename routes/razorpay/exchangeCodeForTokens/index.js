@@ -11,7 +11,7 @@ module.exports = async function (fastify) {
     fastify.post('/', async (request, reply) => {
 
         // Only need code and state from frontend
-        const { code, state: receivedState } = request.body;
+        const { code, state: receivedState, storeId } = request.body;
         // Get the merchantId who initiated the original request (for tracking, if desired)
         const initiatingMerchantId = request.user?.merchantId;
 
@@ -20,6 +20,15 @@ module.exports = async function (fastify) {
         }
         if (!initiatingMerchantId) {
             return reply.status(403).send({ success: false, error: 'Forbidden: Merchant not identified.' });
+        }
+        // Check if this merchant is associated with the requested storeId
+        const storeAccess = await knex('merchantStores')
+            .where({ storeId, merchantId: initiatingMerchantId })
+            .first('merchantStoreId'); // Just check for existence
+
+        if (!storeAccess) {
+            fastify.log.warn({ initiatingMerchantId, storeId }, 'Forbidden attempt to initiate OAuth for store.');
+            return reply.status(403).send({ error: 'Forbidden: You do not have permission for this store.' });
         }
 
         const knexTx = await knex.transaction(); // Start transaction
@@ -45,6 +54,11 @@ module.exports = async function (fastify) {
             }
 
             const targetStoreId = stateRecord.storeId; // *** Get the target storeId from the state record ***
+            if (storeId !== targetStoreId) {
+                await knexTx.rollback();
+                fastify.log.warn({ state: receivedState.substring(0,5)+'...', targetStoreId }, `Store ID mismatch. State is for store ${targetStoreId}, but request was for store ${storeId}.`);
+                return reply.status(400).send({ success: false, error: 'Invalid state parameter. Session invalid or expired.' });
+            }
             fastify.log.info({ state: receivedState.substring(0,5)+'...', targetStoreId }, `State verified for store.`);
 
             // Delete the state immediately within the transaction
@@ -90,6 +104,7 @@ module.exports = async function (fastify) {
 
             // --- Step 3: Extract Details & Encrypt Tokens ---
             const {
+                public_token,
                 access_token,
                 refresh_token = null,
                 expires_in = null,
@@ -107,11 +122,12 @@ module.exports = async function (fastify) {
 
             // --- Step 4: Find or Create Credential Record in `razorpay_credentials` ---
             let credentialId;
-            const razorpayAccountId = razorpay_account_id; // Use consistent naming
-            fastify.log.info({ razorpayAccountId }, "Checking/Updating razorpay_credentials record...");
+            const razorpayAffiliateAccountId = razorpay_account_id; // Use consistent naming
+            fastify.log.info({ razorpayAccountId: razorpayAffiliateAccountId }, "Checking/Updating razorpay_credentials record...");
 
             const credentialData = {
-                razorpayAccountId: razorpayAccountId,
+                razorpayAffiliateAccountId: razorpayAffiliateAccountId,
+                public_token: public_token,
                 accessToken: encryptedAccessToken,
                 refreshToken: encryptedRefreshToken,
                 tokenExpiresAt: expiresAt,
@@ -123,8 +139,9 @@ module.exports = async function (fastify) {
             // Try to insert, on conflict (unique razorpayAccountId), update instead (Upsert)
             const result = await knexTx('razorpay_credentials')
                 .insert({ ...credentialData, credentialId: knex.raw('gen_random_uuid()') }) // Provide ID if needed
-                .onConflict('razorpayAccountId') // Requires unique constraint on this column
+                .onConflict('razorpayAffiliateAccountId') // Requires unique constraint on this column
                 .merge({ // Columns to update on conflict
+                    public_token: public_token,
                     accessToken: encryptedAccessToken,
                     refreshToken: encryptedRefreshToken,
                     tokenExpiresAt: expiresAt,
@@ -137,7 +154,7 @@ module.exports = async function (fastify) {
             if (!result || result.length === 0) {
                 // Fetch separately if returning doesn't work on merge/update in all DB versions/configs
                 const finalCredential = await knexTx('razorpay_credentials')
-                    .where({ razorpayAccountId: razorpayAccountId })
+                    .where({ razorpayAffiliateAccountId: razorpayAffiliateAccountId })
                     .first('credentialId');
                 if (!finalCredential) throw new Error('Failed to find or create credential record.');
                 credentialId = finalCredential.credentialId;
@@ -145,7 +162,7 @@ module.exports = async function (fastify) {
                 credentialId = result[0].credentialId || result[0]; // Handle potential object vs value return
             }
 
-            fastify.log.info({ credentialId, razorpayAccountId }, "Upserted razorpay_credentials record.");
+            fastify.log.info({ credentialId, razorpayAffiliateAccountId: razorpayAffiliateAccountId }, "Upserted razorpay_credentials record.");
 
             // --- Step 5: Link Store to Credential in `store_razorpay_links` ---
             fastify.log.info({ targetStoreId, credentialId }, "Linking store to razorpay credential using upsert...");
@@ -167,89 +184,89 @@ module.exports = async function (fastify) {
             //
             // ***** NEW STEPS START HERE *****
             // --- Step 7: Create Razorpay Route Linked Account ---
-            try {
-                fastify.log.info({ targetStoreId, razorpayAccountId }, "Attempting to create Razorpay Route Linked Account...");
-
-                const storeProfile = await knex('stores') // Use main knex instance (transaction committed)
-                    .where('storeId', targetStoreId)
-                    .select('storeName','storeEmail', 'legalBusinessName', 'storePhone', 'businessType', 'category', 'subcategory', 'registeredAddress')
-                    .first();
-
-                if (!storeProfile) {
-                    fastify.log.error({ targetStoreId }, "Store profile not found after OAuth commit. Critical: Cannot create Route Linked Account.");
-                    // Do not throw here to allow OAuth success message, but this is a problem.
-                } else if (!storeProfile.storeEmail || !storeProfile.legalBusinessName || !storeProfile.businessType || !storeProfile.category || !storeProfile.registeredAddress) {
-                    fastify.log.error({ targetStoreId, storeProfile }, "Store profile is missing mandatory fields for Route Linked Account creation. Critical: Cannot create Route Linked Account.");
-                } else {
-                    const linkedAccountPayload = {
-                        email: storeProfile.storeEmail,
-                        phone: storeProfile.storePhone,
-                        legal_business_name: storeProfile.legalBusinessName,
-                        customer_facing_business_name: storeProfile.storeName,
-                        type: "route",
-                        business_type: storeProfile.businessType,
-                        profile: {
-                            category: storeProfile.category,
-                            subcategory: storeProfile.subcategory, // API allows optional
-                            addresses: {
-                                registered: {
-                                    street1: storeProfile.registeredAddress.street1,
-                                    street2: storeProfile.registeredAddress.street2 || undefined,
-                                    city: storeProfile.registeredAddress.city,
-                                    state: storeProfile.registeredAddress.state,
-                                    // IMPORTANT: Razorpay often expects ISO 3166-1 alpha-2 country codes (e.g., "IN")
-                                    // Your NewAddressForm stores full country names. You MAY need to convert this.
-                                    country: storeProfile.registeredAddress.country.toLowerCase(), // Example: "India". Verify RZP requirement.
-                                    postal_code: storeProfile.registeredAddress.postalCode
-                                },
-                            }
-                        },
-                    };
-
-                    const platformRazorpayKeyId = process.env.RAZORPAY_KEY_ID;
-                    const platformRazorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-
-                    if (!platformRazorpayKeyId || !platformRazorpayKeySecret) {
-                        fastify.log.error("Platform's Razorpay API keys for Route (RAZORPAY_KEY_ID_PLATFORM, RAZORPAY_KEY_SECRET_PLATFORM) are not configured. Cannot create Route Linked Account.");
-                    } else {
-                        const routeApiUrl = `https://api.razorpay.com/v2/accounts`;
-                        const basicAuthToken = Buffer.from(`${platformRazorpayKeyId}:${platformRazorpayKeySecret}`).toString('base64');
-
-                        fastify.log.info({ targetStoreId, url: routeApiUrl }, "Calling Razorpay Create Linked Account API.");
-                        try {
-                            console.log('razorpay create linked account payload:', linkedAccountPayload);
-                            const linkedAccountResponse = await axios.post(routeApiUrl, linkedAccountPayload, {
-                                headers: {
-                                    'Authorization': `Basic ${basicAuthToken}`,
-                                    'Content-Type': 'application/json'
-                                },
-                                validateStatus: status => status < 500 // Handle 4xx as non-exceptions for detailed logging
-                            });
-                            console.log('razorpay create linked account response status:', linkedAccountResponse.status);
-                            console.log('razorpay create linked account response :', JSON.stringify(linkedAccountResponse.data, null, 2));
-                            if (linkedAccountResponse.status >= 200 && linkedAccountResponse.status < 300) {
-                                const linkedAccountData = linkedAccountResponse.data;
-                                const razorpayLinkedAccountId = linkedAccountData.id; // This is the 'la_...' ID
-                                fastify.log.info({ targetStoreId, razorpayAccountId, razorpayLinkedAccountId }, "Razorpay Route Linked Account created successfully.");
-
-                            } else {
-                                fastify.log.error({
-                                    targetStoreId,
-                                    razorpayAccountIdForRoute: razorpayAccountId,
-                                    statusCode: linkedAccountResponse.status,
-                                    requestPayload: linkedAccountPayload, // Log payload for debugging
-                                    responseData: linkedAccountResponse.data
-                                }, "Failed to create Razorpay Route Linked Account. API returned error.");
-                            }
-                        } catch (routeApiError) { // Network error or non-4xx error from Axios
-                            fastify.log.error({ err: routeApiError, targetStoreId, razorpayAccountIdForRoute: razorpayAccountId }, "Exception during Razorpay Route Linked Account API call.");
-                        }
-                    }
-                }
-            } catch (routeSetupError) {
-                // This catches errors from fetching storeProfile or other logic within Step 7 block
-                fastify.log.error({ err: routeSetupError, targetStoreId }, "Error during setup phase for creating Route Linked Account (after OAuth commit).");
-            }
+            // try {
+            //     fastify.log.info({ targetStoreId, razorpayAffiliateAccountId: razorpayAffiliateAccountId }, "Attempting to create Razorpay Route Linked Account...");
+            //
+            //     const storeProfile = await knex('stores') // Use main knex instance (transaction committed)
+            //         .where('storeId', targetStoreId)
+            //         .select('storeName','storeEmail', 'legalBusinessName', 'storePhone', 'businessType', 'category', 'subcategory', 'registeredAddress')
+            //         .first();
+            //
+            //     if (!storeProfile) {
+            //         fastify.log.error({ targetStoreId }, "Store profile not found after OAuth commit. Critical: Cannot create Route Linked Account.");
+            //         // Do not throw here to allow OAuth success message, but this is a problem.
+            //     } else if (!storeProfile.storeEmail || !storeProfile.legalBusinessName || !storeProfile.businessType || !storeProfile.category || !storeProfile.registeredAddress) {
+            //         fastify.log.error({ targetStoreId, storeProfile }, "Store profile is missing mandatory fields for Route Linked Account creation. Critical: Cannot create Route Linked Account.");
+            //     } else {
+            //         const linkedAccountPayload = {
+            //             email: storeProfile.storeEmail,
+            //             phone: storeProfile.storePhone,
+            //             legal_business_name: storeProfile.legalBusinessName,
+            //             customer_facing_business_name: storeProfile.storeName,
+            //             type: "route",
+            //             business_type: storeProfile.businessType,
+            //             profile: {
+            //                 category: storeProfile.category,
+            //                 subcategory: storeProfile.subcategory, // API allows optional
+            //                 addresses: {
+            //                     registered: {
+            //                         street1: storeProfile.registeredAddress.street1,
+            //                         street2: storeProfile.registeredAddress.street2,
+            //                         city: storeProfile.registeredAddress.city,
+            //                         state: storeProfile.registeredAddress.state,
+            //                         // IMPORTANT: Razorpay often expects ISO 3166-1 alpha-2 country codes (e.g., "IN")
+            //                         // Your NewAddressForm stores full country names. You MAY need to convert this.
+            //                         country: storeProfile.registeredAddress.country.toLowerCase(), // Example: "India". Verify RZP requirement.
+            //                         postal_code: storeProfile.registeredAddress.postalCode
+            //                     },
+            //                 }
+            //             },
+            //         };
+            //
+            //         const platformRazorpayKeyId = process.env.RAZORPAY_KEY_ID;
+            //         const platformRazorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+            //
+            //         if (!platformRazorpayKeyId || !platformRazorpayKeySecret) {
+            //             fastify.log.error("Platform's Razorpay API keys for Route (RAZORPAY_KEY_ID_PLATFORM, RAZORPAY_KEY_SECRET_PLATFORM) are not configured. Cannot create Route Linked Account.");
+            //         } else {
+            //             const routeApiUrl = `https://api.razorpay.com/v2/accounts`;
+            //             const basicAuthToken = Buffer.from(`${platformRazorpayKeyId}:${platformRazorpayKeySecret}`).toString('base64');
+            //
+            //             fastify.log.info({ targetStoreId, url: routeApiUrl }, "Calling Razorpay Create Linked Account API.");
+            //             try {
+            //                 console.log('razorpay create linked account payload:', linkedAccountPayload);
+            //                 const linkedAccountResponse = await axios.post(routeApiUrl, linkedAccountPayload, {
+            //                     headers: {
+            //                         'Authorization': `Basic ${basicAuthToken}`,
+            //                         'Content-Type': 'application/json'
+            //                     },
+            //                     validateStatus: status => status < 500 // Handle 4xx as non-exceptions for detailed logging
+            //                 });
+            //                 console.log('razorpay create linked account response status:', linkedAccountResponse.status);
+            //                 console.log('razorpay create linked account response :', JSON.stringify(linkedAccountResponse.data, null, 2));
+            //                 if (linkedAccountResponse.status >= 200 && linkedAccountResponse.status < 300) {
+            //                     const linkedAccountData = linkedAccountResponse.data;
+            //                     const razorpayLinkedAccountId = linkedAccountData.id; // This is the 'la_...' ID
+            //                     fastify.log.info({ targetStoreId, razorpayAccountId: razorpayAffiliateAccountId, razorpayLinkedAccountId }, "Razorpay Route Linked Account created successfully.");
+            //
+            //                 } else {
+            //                     fastify.log.error({
+            //                         targetStoreId,
+            //                         razorpayAccountIdForRoute: razorpayAffiliateAccountId,
+            //                         statusCode: linkedAccountResponse.status,
+            //                         requestPayload: linkedAccountPayload, // Log payload for debugging
+            //                         responseData: linkedAccountResponse.data
+            //                     }, "Failed to create Razorpay Route Linked Account. API returned error.");
+            //                 }
+            //             } catch (routeApiError) { // Network error or non-4xx error from Axios
+            //                 fastify.log.error({ err: routeApiError, targetStoreId, razorpayAccountIdForRoute: razorpayAffiliateAccountId }, "Exception during Razorpay Route Linked Account API call.");
+            //             }
+            //         }
+            //     }
+            // } catch (routeSetupError) {
+            //     // This catches errors from fetching storeProfile or other logic within Step 7 block
+            //     fastify.log.error({ err: routeSetupError, targetStoreId }, "Error during setup phase for creating Route Linked Account (after OAuth commit).");
+            // }
             // ***** NEW STEPS END HERE *****
 
 

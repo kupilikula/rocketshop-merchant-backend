@@ -39,12 +39,12 @@ module.exports = async function (fastify, opts) {
             const link = await knex('stores as s')
                 .innerJoin('store_razorpay_links as srl', 's.storeId', 'srl.storeId')
                 .innerJoin('razorpay_credentials as rc', 'srl.razorpayCredentialId', 'rc.credentialId')
-                .select('rc.razorpayAccountId')
+                .select('rc.razorpayLinkedAccountId')
                 .where('s.storeId', storeId)
                 .first();
 
             // 3. If no link exists locally, return disconnected status
-            if (!link || !link.razorpayAccountId) {
+            if (!link || !link.razorpayLinkedAccountId) {
                 logger.info({ storeId }, 'No active Razorpay link found locally for store.');
                 return reply.send({
                     isConnected: false,
@@ -57,19 +57,19 @@ module.exports = async function (fastify, opts) {
             }
 
             // 4. If linked locally, Fetch LIVE Details from Razorpay API
-            const razorpayAccountId = link.razorpayAccountId;
-            logger.info({ storeId, razorpayAccountId }, 'Local link found. Fetching live details from Razorpay API...');
+            const razorpayLinkedAccountId = link.razorpayLinkedAccountId;
+            logger.info({ storeId, razorpayAccountId: razorpayLinkedAccountId }, 'Local link found. Fetching live details from Razorpay API...');
 
             // Get YOUR platform's API keys (Test or Live based on environment)
             const keyId = process.env.RAZORPAY_KEY_ID;
             const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
             if (!keyId || !keySecret) {
-                logger.error({ storeId, razorpayAccountId }, "Razorpay API Keys (KEY_ID, KEY_SECRET) are not configured on backend.");
+                logger.error({ storeId, razorpayLinkedAccountId: razorpayLinkedAccountId }, "Razorpay API Keys (KEY_ID, KEY_SECRET) are not configured on backend.");
                 // Return connected based on local data, but indicate details couldn't be fetched
                 return reply.status(500).send({
                     isConnected: true, // Link exists locally
-                    accountId: razorpayAccountId,
+                    accountId: razorpayLinkedAccountId,
                     name: null, email: null, status: null,
                     error: 'Server configuration error prevented fetching live details.'
                 });
@@ -77,7 +77,7 @@ module.exports = async function (fastify, opts) {
 
             // Prepare Basic Auth header using YOUR platform API keys
             const basicAuthToken = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-            const accountApiUrl = `${RAZORPAY_API_BASE}/accounts/${razorpayAccountId}`;
+            const accountApiUrl = `${RAZORPAY_API_BASE}/accounts/${razorpayLinkedAccountId}`;
 
             let accountName = null;
             let accountEmail = null;
@@ -94,7 +94,7 @@ module.exports = async function (fastify, opts) {
                 });
 
                 const accountData = razorpayResponse.data;
-                logger.info({ storeId, razorpayAccountId }, 'Successfully fetched details from Razorpay API.');
+                logger.info({ storeId, razorpayLinkedAccountId: razorpayLinkedAccountId }, 'Successfully fetched details from Razorpay API.');
 
                 // Extract details based on the sample response provided
                 accountName = accountData?.customer_facing_business_name
@@ -111,7 +111,7 @@ module.exports = async function (fastify, opts) {
                     status: razorpayError.response?.status,
                     code: razorpayError.code, // e.g., ECONNABORTED
                     storeId,
-                    razorpayAccountId
+                    razorpayLinkedAccountId: razorpayLinkedAccountId
                 }, 'Error fetching details from Razorpay Account API.');
 
                 // Create user-friendly error message based on common cases
@@ -131,7 +131,7 @@ module.exports = async function (fastify, opts) {
             // 5. Return the final combined status and details (or error message for details)
             return reply.send({
                 isConnected: true, // We know this from the local 'link' check
-                accountId: razorpayAccountId,
+                linkedAccountId: razorpayLinkedAccountId,
                 name: accountName,
                 email: accountEmail,
                 status: accountStatus,

@@ -139,7 +139,9 @@ exports.up = async function (knex) {
     console.log("Creating table: razorpay_credentials...");
     await knex.schema.createTable('razorpay_credentials', function(table) {
         table.uuid('credentialId').primary().defaultTo(knex.raw('gen_random_uuid()'));
-        table.string('razorpayAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
+        table.string('razorpayAffiliateAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
+        table.string('razorpayLinkedAccountId').nullable();
+        table.string('public_token').notNullable(); // Store encrypted token
         table.text('accessToken').notNullable(); // Store encrypted token
         table.text('refreshToken').nullable(); // Store encrypted token (if available)
         table.timestamp('tokenExpiresAt', { useTz: true }).nullable(); // Access token expiry
