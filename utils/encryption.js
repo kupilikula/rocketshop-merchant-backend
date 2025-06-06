@@ -30,7 +30,7 @@ if (key.length !== 32 && process.env.NODE_ENV !== 'test') { // Allow incorrect l
  * @param {string} textToEncrypt - The plaintext string to encrypt.
  * @returns {string} A string combining IV, auth tag, and ciphertext, hex-encoded (format: ivHex:authTagHex:ciphertextHex). Returns empty string on error.
  */
-function encryptToken(textToEncrypt) { // Removed 'export' keyword
+function encryptText(textToEncrypt) { // Removed 'export' keyword
     if (!textToEncrypt) {
         return '';
     }
@@ -68,7 +68,7 @@ function encryptToken(textToEncrypt) { // Removed 'export' keyword
  * @param {string} encryptedText - The encrypted string (format: ivHex:authTagHex:ciphertextHex).
  * @returns {string} The original plaintext string. Returns empty string on error or invalid format/tag.
  */
-function decryptToken(encryptedText) { // Removed 'export' keyword
+function decryptText(encryptedText) { // Removed 'export' keyword
     if (!encryptedText) {
         return '';
     }
@@ -116,6 +116,6 @@ function decryptToken(encryptedText) { // Removed 'export' keyword
 
 // Export the functions using module.exports for CommonJS
 module.exports = {
-    encryptToken,
-    decryptToken
+    encryptText,
+    decryptText
 };

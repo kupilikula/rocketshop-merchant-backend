@@ -1,145 +1,137 @@
-// src/routes/stores/razorpayConnection.js (Example Path)
+// src/routes/stores/razorpayConnectionStatus.js (or your file path)
 
 'use strict';
 
 const knex = require('@database/knexInstance'); // <<< ADJUST path to your Knex instance
-const axios = require('axios'); // Required for live API call
+const axios = require('axios');
+const { decryptText } = require("../../../utils/encryption"); // <<< Ensure path is correct
 
-// Using v2 based on your curl example. Double-check if v1 is more appropriate for GET /accounts/{id}
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v2';
-const API_TIMEOUT = 7000; // Timeout for Razorpay API call in milliseconds (e.g., 7 seconds)
+const API_TIMEOUT = 7000;
 
 module.exports = async function (fastify, opts) {
-
-    // Define the GET route
-    fastify.get('/', async (request, reply) => {
+    // The route would be mounted under a prefix, e.g., GET /stores/:storeId/razorpay/status
+    fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
         const { storeId } = request.params;
-        const merchantId = request.user?.merchantId; // Assumes auth middleware provides this
-        const logger = fastify.log; // Use Fastify's built-in logger
+        const merchantId = request.user?.merchantId;
+        const logger = fastify.log;
 
-        // 1. Authorization Check: Ensure the logged-in merchant can access this store
+        // 1. Authorization Check (unchanged)
         if (!merchantId) {
-            logger.warn({ storeId }, 'MerchantId missing during razorpay connection status check.');
             return reply.status(403).send({ error: 'Forbidden: Authentication required.' });
         }
 
         try {
             const storeAccess = await knex('merchantStores')
                 .where({ storeId: storeId, merchantId: merchantId })
-                .first('merchantStoreId'); // Check if relationship exists
+                .first('merchantStoreId');
 
             if (!storeAccess) {
-                logger.warn({ merchantId, storeId }, 'Merchant forbidden from accessing store razorpay status.');
                 return reply.status(403).send({ error: 'Forbidden: Access denied to this store.' });
             }
 
-            // 2. Check for Local Link and Get Razorpay Account ID
-            logger.info({ storeId }, 'Checking local Razorpay link for store.');
-            // Join stores -> links -> credentials to get the razorpayAccountId (acc_...)
-            const link = await knex('stores as s')
+            // 2. Check for Local Link and Get Razorpay Account ID & Setup Status
+            logger.info({ storeId }, 'Checking local Razorpay link and setup status for store.');
+
+            // --- QUERY MODIFIED to select setupStatus ---
+            const linkAndStatus = await knex('stores as s')
                 .innerJoin('store_razorpay_links as srl', 's.storeId', 'srl.storeId')
                 .innerJoin('razorpay_credentials as rc', 'srl.razorpayCredentialId', 'rc.credentialId')
-                .select('rc.razorpayLinkedAccountId')
+                .select(
+                    'rc.razorpayLinkedAccountId', // The Route Account ID
+                    'rc.setupStatus'              // The setup status field
+                )
                 .where('s.storeId', storeId)
                 .first();
 
-            // 3. If no link exists locally, return disconnected status
-            if (!link || !link.razorpayLinkedAccountId) {
-                logger.info({ storeId }, 'No active Razorpay link found locally for store.');
-                return reply.send({
-                    isConnected: false,
-                    accountId: null,
-                    name: null,
-                    email: null,
-                    status: null,
-                    error: null
-                });
+            // 3. If no link exists, check for saved bank details
+            if (!linkAndStatus || !linkAndStatus.razorpayLinkedAccountId) {
+                logger.info({ storeId }, 'No active Razorpay link found. Checking for saved bank details.');
+
+                const bankDetailsRecord = await knex('store_bank_accounts').where('storeId', storeId).first();
+
+                if (bankDetailsRecord) {
+                    const decryptedDetails = {
+                        account_number: decryptText(bankDetailsRecord.accountNumber_encrypted),
+                        ifsc_code: decryptText(bankDetailsRecord.ifscCode_encrypted),
+                        beneficiary_name: decryptText(bankDetailsRecord.beneficiaryName_encrypted),
+                        // You could also decrypt and return stakeholder details here if needed for pre-filling
+                    };
+
+                    if (!decryptedDetails.account_number || !decryptedDetails.ifsc_code || !decryptedDetails.beneficiary_name) {
+                        logger.error({ storeId }, "Decryption of bank details failed.");
+                        return reply.status(500).send({ error: 'Server could not decrypt saved bank details.' });
+                    }
+
+                    return reply.send({
+                        isConnected: false,
+                        setupStatus: 'not_connected', // Explicit status for this state
+                        bankDetails: decryptedDetails,
+                        linkedAccountId: null, name: null, email: null, status: null, error: null
+                    });
+                } else {
+                    return reply.send({
+                        isConnected: false,
+                        setupStatus: 'not_connected', // Explicit status
+                        bankDetails: null,
+                        linkedAccountId: null, name: null, email: null, status: null, error: null
+                    });
+                }
             }
 
             // 4. If linked locally, Fetch LIVE Details from Razorpay API
-            const razorpayLinkedAccountId = link.razorpayLinkedAccountId;
-            logger.info({ storeId, razorpayAccountId: razorpayLinkedAccountId }, 'Local link found. Fetching live details from Razorpay API...');
+            const { razorpayLinkedAccountId, setupStatus } = linkAndStatus;
+            logger.info({ storeId, razorpayLinkedAccountId, setupStatus }, 'Local link found. Fetching live details from Razorpay API...');
 
-            // Get YOUR platform's API keys (Test or Live based on environment)
-            const keyId = process.env.RAZORPAY_KEY_ID;
-            const keySecret = process.env.RAZORPAY_KEY_SECRET;
+            // If setup is already complete, we can fetch live data.
+            // If setup is NOT complete, we might not need to call Razorpay's API yet,
+            // but for simplicity and to always get the latest live `status`, we will call it.
+            const keyId = process.env.RAZORPAY_KEY_ID_PLATFORM;
+            const keySecret = process.env.RAZORPAY_KEY_SECRET_PLATFORM;
 
             if (!keyId || !keySecret) {
-                logger.error({ storeId, razorpayLinkedAccountId: razorpayLinkedAccountId }, "Razorpay API Keys (KEY_ID, KEY_SECRET) are not configured on backend.");
-                // Return connected based on local data, but indicate details couldn't be fetched
+                logger.error({ storeId, razorpayLinkedAccountId }, "Platform Razorpay API Keys are not configured on backend.");
                 return reply.status(500).send({
-                    isConnected: true, // Link exists locally
-                    accountId: razorpayLinkedAccountId,
-                    name: null, email: null, status: null,
+                    isConnected: true, setupStatus, linkedAccountId: razorpayLinkedAccountId,
+                    bankDetails: null, name: null, email: null, status: null,
                     error: 'Server configuration error prevented fetching live details.'
                 });
             }
 
-            // Prepare Basic Auth header using YOUR platform API keys
             const basicAuthToken = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
             const accountApiUrl = `${RAZORPAY_API_BASE}/accounts/${razorpayLinkedAccountId}`;
 
-            let accountName = null;
-            let accountEmail = null;
-            let accountStatus = null;
-            let detailError = null; // Store specific error message if API fails
+            let accountName = null, accountEmail = null, liveRazorpayStatus = null, detailError = null;
 
             try {
                 const razorpayResponse = await axios.get(accountApiUrl, {
-                    headers: {
-                        'Authorization': `Basic ${basicAuthToken}`,
-                        'Content-Type': 'application/json' // Important for Razorpay APIs
-                    },
-                    timeout: API_TIMEOUT // Prevent hanging indefinitely
+                    headers: { 'Authorization': `Basic ${basicAuthToken}`, 'Content-Type': 'application/json' },
+                    timeout: API_TIMEOUT
                 });
-
                 const accountData = razorpayResponse.data;
-                logger.info({ storeId, razorpayLinkedAccountId: razorpayLinkedAccountId }, 'Successfully fetched details from Razorpay API.');
-
-                // Extract details based on the sample response provided
-                accountName = accountData?.customer_facing_business_name
-                    || accountData?.legal_business_name
-                    || accountData?.contact_name
-                    || null; // Fallback to null
-                accountEmail = accountData?.email || null; // Top-level email
-                accountStatus = accountData?.status || null; // e.g., 'created', 'activated'
-
+                logger.info({ storeId, razorpayLinkedAccountId }, 'Successfully fetched details from Razorpay API.');
+                accountName = accountData?.legal_business_name || accountData?.contact_name || null;
+                accountEmail = accountData?.email || null;
+                liveRazorpayStatus = accountData?.status || null; // e.g., 'created', 'activated', 'under_review'
             } catch (razorpayError) {
                 const errorResponseData = razorpayError.response?.data?.error;
-                logger.error({
-                    err: errorResponseData || razorpayError.message, // Log RZP specific error or general message
-                    status: razorpayError.response?.status,
-                    code: razorpayError.code, // e.g., ECONNABORTED
-                    storeId,
-                    razorpayLinkedAccountId: razorpayLinkedAccountId
-                }, 'Error fetching details from Razorpay Account API.');
-
-                // Create user-friendly error message based on common cases
-                if (razorpayError.response?.status === 404 || errorResponseData?.reason === 'linked_account_id_does_not_exist') {
-                    detailError = 'Linked Razorpay account not found on Razorpay (may have been deleted/disconnected).';
-                    // Consider if you should delete the local link here too? Risky if temporary API issue.
-                } else if (razorpayError.response?.status === 401 || razorpayError.response?.status === 403) {
-                    detailError = 'Server authentication error with Razorpay API (check API keys).';
-                } else if (razorpayError.code === 'ECONNABORTED' || razorpayError.message.includes('timeout')) {
-                    detailError = `Timeout fetching details from Razorpay (limit: ${API_TIMEOUT}ms).`;
-                } else {
-                    // Use description from RZP error if available, else generic message
-                    detailError = errorResponseData?.description || 'Could not fetch live details from Razorpay.';
-                }
+                logger.error({ err: errorResponseData || razorpayError.message, storeId, razorpayLinkedAccountId }, 'Error fetching details from Razorpay Account API.');
+                detailError = errorResponseData?.description || 'Could not fetch live details from Razorpay.';
             }
 
-            // 5. Return the final combined status and details (or error message for details)
+            // 5. Return the final combined status for a connected account
             return reply.send({
-                isConnected: true, // We know this from the local 'link' check
+                isConnected: true,
+                setupStatus: setupStatus, // <<< The setupStatus from your DB
                 linkedAccountId: razorpayLinkedAccountId,
                 name: accountName,
                 email: accountEmail,
-                status: accountStatus,
-                error: detailError // Null if API call succeeded, error message otherwise
+                status: liveRazorpayStatus, // Live status from Razorpay API
+                error: detailError,
+                bankDetails: null
             });
 
         } catch (dbError) {
-            // Catch errors from the initial database queries or other unexpected issues
             logger.error({ err: dbError, storeId, merchantId }, 'Error during razorpay connection status check.');
             return reply.status(500).send({ error: 'Internal Server Error' });
         }

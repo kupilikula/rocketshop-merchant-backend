@@ -1,303 +1,317 @@
-// routes/razorpay/exchangeCodeForTokens.js (Example path)
+// routes/razorpay/exchangeCodeForTokens.js
 
 'use strict';
 
-const knex = require('@database/knexInstance'); // Adjust path
+const knex = require('@database/knexInstance'); // Adjust path to your Knex instance
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid'); // For status history UUIDs if used elsewhere
-const { encryptToken } = require("../../../utils/encryption"); // <<< ADJUST PATH
+const { encryptText, decryptText } = require("../../../utils/encryption"); // Adjust path and function names as needed
+
+/**
+ * Helper function to update the setup status for a given credential record.
+ * @param {object} logger - The Fastify logger instance.
+ * @param {string} razorpayAffiliateAccountId - The ID to find the record.
+ * @param {string} status - The new status to set.
+ */
+const updateSetupStatus = async (logger, razorpayAffiliateAccountId, status) => {
+    try {
+        await knex('razorpay_credentials')
+            .where({ razorpayAffiliateAccountId })
+            .update({ setupStatus: status, updated_at: new Date() });
+        logger.info({ razorpayAffiliateAccountId, newStatus: status }, "Updated Razorpay setup status.");
+    } catch (error) {
+        logger.error({ err: error, razorpayAffiliateAccountId, status }, "Failed to update setup status in DB.");
+        // Non-fatal, as the primary operation might have succeeded. Log and monitor.
+    }
+};
 
 module.exports = async function (fastify) {
-    fastify.post('/', async (request, reply) => {
-
-        // Only need code and state from frontend
+    fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+        const logger = fastify.log;
         const { code, state: receivedState, storeId } = request.body;
-        // Get the merchantId who initiated the original request (for tracking, if desired)
         const initiatingMerchantId = request.user?.merchantId;
 
-        if (!code || !receivedState) {
-            return reply.status(400).send({ success: false, error: 'Missing required code or state parameter.' });
+        if (!code || !receivedState || !storeId || !initiatingMerchantId) {
+            return reply.status(400).send({ success: false, error: 'Missing required parameters.' });
         }
-        if (!initiatingMerchantId) {
-            return reply.status(403).send({ success: false, error: 'Forbidden: Merchant not identified.' });
-        }
-        // Check if this merchant is associated with the requested storeId
-        const storeAccess = await knex('merchantStores')
-            .where({ storeId, merchantId: initiatingMerchantId })
-            .first('merchantStoreId'); // Just check for existence
 
+        const storeAccess = await knex('merchantStores').where({ storeId, merchantId: initiatingMerchantId }).first('merchantStoreId');
         if (!storeAccess) {
-            fastify.log.warn({ initiatingMerchantId, storeId }, 'Forbidden attempt to initiate OAuth for store.');
             return reply.status(403).send({ error: 'Forbidden: You do not have permission for this store.' });
         }
 
-        const knexTx = await knex.transaction(); // Start transaction
+        const knexTx = await knex.transaction();
+        let razorpayAffiliateAccountId;
+        let credentialId;
 
         try {
-            // --- Step 1: Verify State & Get Associated Store ID ---
-            fastify.log.info({ state: receivedState.substring(0,5)+'...' }, `Verifying state...`);
-            const stateRecord = await knexTx('razorpay_oauth_states')
-                .where('state', receivedState)
-                .first('id', 'storeId', 'expires_at'); // Get storeId linked to state
+            // --- Steps 1-5: Atomic OAuth Data Processing ---
+            const stateRecord = await knexTx('razorpay_oauth_states').where('state', receivedState).first();
 
-            if (!stateRecord) {
+            if (!stateRecord || new Date(stateRecord.expires_at) < new Date() || stateRecord.storeId !== storeId) {
                 await knexTx.rollback();
-                fastify.log.warn({ state: receivedState.substring(0,5)+'...' }, `Invalid or unknown state received.`);
-                return reply.status(400).send({ success: false, error: 'Invalid state parameter. Session invalid or expired.' });
+                return reply.status(400).send({ success: false, error: 'Invalid or expired state parameter. Please try again.' });
             }
-
-            if (new Date(stateRecord.expires_at) < new Date()) {
-                await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del(); // Delete expired state
-                await knexTx.commit(); // Commit the deletion
-                fastify.log.warn({ state: receivedState.substring(0,5)+'...' }, `Expired state received.`);
-                return reply.status(400).send({ success: false, error: 'OAuth session expired. Please try again.' });
-            }
-
-            const targetStoreId = stateRecord.storeId; // *** Get the target storeId from the state record ***
-            if (storeId !== targetStoreId) {
-                await knexTx.rollback();
-                fastify.log.warn({ state: receivedState.substring(0,5)+'...', targetStoreId }, `Store ID mismatch. State is for store ${targetStoreId}, but request was for store ${storeId}.`);
-                return reply.status(400).send({ success: false, error: 'Invalid state parameter. Session invalid or expired.' });
-            }
-            fastify.log.info({ state: receivedState.substring(0,5)+'...', targetStoreId }, `State verified for store.`);
-
-            // Delete the state immediately within the transaction
+            const targetStoreId = stateRecord.storeId;
             await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del();
-            fastify.log.info({ state: receivedState.substring(0,5)+'...'}, `State deleted.`);
 
-            // --- Step 2: Exchange Code for Tokens with Razorpay ---
-            const clientId = process.env.RAZORPAY_CLIENT_ID;
-            const clientSecret = process.env.RAZORPAY_CLIENT_SECRET;
-            const redirectUri = process.env.RAZORPAY_REDIRECT_URI; // The backend callback URI registered with RZP
-
-            if (!clientId || !clientSecret || !redirectUri) {
-                await knexTx.rollback();
-                fastify.log.error('Razorpay OAuth client credentials or redirect URI missing.');
-                return reply.status(500).send({success: false, error: 'Server configuration error.'});
-            }
-
-            fastify.log.info(`Requesting tokens from Razorpay for code associated with state ${receivedState.substring(0,5)}...`);
-
-                const tokenResponse = await axios.post('https://auth.razorpay.com/token', {
-                    grant_type: 'authorization_code',
-                    code: code,
-                    redirect_uri: redirectUri, // MUST match the URI registered AND used during initiation
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                }, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    validateStatus: status => status < 500
-                });
-                console.log('DEBUG - Raw Token Response:', tokenResponse.data); // DEBUG only
-            if (tokenResponse.status >= 400) {
-                console.log('Token request failed, ', JSON.stringify(tokenResponse, null, 2));
-                await knexTx.rollback();
-                fastify.log.error({ statusCode: tokenResponse.status, responseData: tokenResponse.data }, 'Razorpay token exchange failed.');
-                const errorMessage = tokenResponse.data?.error_description || tokenResponse.data?.error || 'Failed to exchange code with Razorpay.';
-                return reply.status(400).send({success: false, error: errorMessage});
-            }
+            const tokenResponse = await axios.post('https://auth.razorpay.com/token', {
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: process.env.RAZORPAY_REDIRECT_URI,
+                client_id: process.env.RAZORPAY_CLIENT_ID,
+                client_secret: process.env.RAZORPAY_CLIENT_SECRET,
+            }, { headers: { 'Content-Type': 'application/json' } });
 
             const tokenData = tokenResponse.data;
-            fastify.log.info('Received successful token response from Razorpay:', Object.keys(tokenData));
-
-            // --- Step 3: Extract Details & Encrypt Tokens ---
-            const {
-                public_token,
-                access_token,
-                refresh_token = null,
-                expires_in = null,
-                scope = null, // Check actual field name from Razorpay response
-                razorpay_account_id
-            } = tokenData;
-
-            if (!razorpay_account_id || !access_token) { /* ... handle missing required fields, rollback ... */ }
-
-            const encryptedAccessToken = encryptToken(access_token);
-            const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null;
-            const expiresAt = expires_in ? new Date(Date.now() + (expires_in * 1000)) : null;
-            // Ensure scope is stored as text. If RZP returns array, join it.
-            const grantedScopes = Array.isArray(scope) ? scope.join(' ') : scope;
-
-            // --- Step 4: Find or Create Credential Record in `razorpay_credentials` ---
-            let credentialId;
-            const razorpayAffiliateAccountId = razorpay_account_id; // Use consistent naming
-            fastify.log.info({ razorpayAccountId: razorpayAffiliateAccountId }, "Checking/Updating razorpay_credentials record...");
-
-            const credentialData = {
-                razorpayAffiliateAccountId: razorpayAffiliateAccountId,
-                public_token: public_token,
-                accessToken: encryptedAccessToken,
-                refreshToken: encryptedRefreshToken,
-                tokenExpiresAt: expiresAt,
-                grantedScopes: grantedScopes,
-                addedByMerchantId: initiatingMerchantId, // Track who linked it
-                updated_at: new Date() // Explicitly set update time
-            };
-
-            // Try to insert, on conflict (unique razorpayAccountId), update instead (Upsert)
-            const result = await knexTx('razorpay_credentials')
-                .insert({ ...credentialData, credentialId: knex.raw('gen_random_uuid()') }) // Provide ID if needed
-                .onConflict('razorpayAffiliateAccountId') // Requires unique constraint on this column
-                .merge({ // Columns to update on conflict
-                    public_token: public_token,
-                    accessToken: encryptedAccessToken,
-                    refreshToken: encryptedRefreshToken,
-                    tokenExpiresAt: expiresAt,
-                    grantedScopes: grantedScopes,
-                    addedByMerchantId: initiatingMerchantId, // Update who last linked it? Optional.
-                    updated_at: new Date()
-                })
-                .returning('credentialId'); // Get the ID whether inserted or updated
-
-            if (!result || result.length === 0) {
-                // Fetch separately if returning doesn't work on merge/update in all DB versions/configs
-                const finalCredential = await knexTx('razorpay_credentials')
-                    .where({ razorpayAffiliateAccountId: razorpayAffiliateAccountId })
-                    .first('credentialId');
-                if (!finalCredential) throw new Error('Failed to find or create credential record.');
-                credentialId = finalCredential.credentialId;
-            } else {
-                credentialId = result[0].credentialId || result[0]; // Handle potential object vs value return
+            razorpayAffiliateAccountId = tokenData.razorpay_account_id;
+            if (!razorpayAffiliateAccountId || !tokenData.access_token) {
+                throw new Error("Token response from Razorpay was missing required account_id or access_token.");
             }
 
-            fastify.log.info({ credentialId, razorpayAffiliateAccountId: razorpayAffiliateAccountId }, "Upserted razorpay_credentials record.");
+            const credentialData = {
+                razorpayAffiliateAccountId,
+                public_token: encryptText(tokenData.public_token),
+                accessToken: encryptText(tokenData.access_token),
+                refreshToken: tokenData.refresh_token ? encryptText(tokenData.refresh_token) : null,
+                tokenExpiresAt: tokenData.expires_in ? new Date(Date.now() + (tokenData.expires_in * 1000)) : null,
+                grantedScopes: Array.isArray(tokenData.scope) ? tokenData.scope.join(' ') : tokenData.scope,
+                addedByMerchantId: initiatingMerchantId,
+                setupStatus: 'oauth_complete' // Initial status after successful OAuth
+            };
 
-            // --- Step 5: Link Store to Credential in `store_razorpay_links` ---
-            fastify.log.info({ targetStoreId, credentialId }, "Linking store to razorpay credential using upsert...");
+            const result = await knexTx('razorpay_credentials')
+                .insert(credentialData)
+                .onConflict('razorpayAffiliateAccountId')
+                .merge()
+                .returning('credentialId');
+
+            credentialId = result[0]?.credentialId || (await knexTx('razorpay_credentials').where({ razorpayAffiliateAccountId }).first('credentialId'))?.credentialId;
+
+            if (!credentialId) {
+                throw new Error("Failed to find or create credential record after upsert.");
+            }
 
             await knexTx('store_razorpay_links')
-                .insert({
-                    // linkId: knex.raw('gen_random_uuid()'), // If UUID PK
-                    storeId: targetStoreId, // The store this flow was initiated for
-                    razorpayCredentialId: credentialId
-                    // created_at/updated_at handled by timestamps()
-                })
-                .onConflict('storeId') // Based on unique constraint on storeId
-                .merge({ // If link exists, update which credential it points to & timestamp
-                    razorpayCredentialId: credentialId,
-                    updated_at: new Date()
-                });
-            fastify.log.info(`Successfully linked store ${targetStoreId} to credential ${credentialId}.`);
-
-            //
-            // ***** NEW STEPS START HERE *****
-            // --- Step 7: Create Razorpay Route Linked Account ---
-            // try {
-            //     fastify.log.info({ targetStoreId, razorpayAffiliateAccountId: razorpayAffiliateAccountId }, "Attempting to create Razorpay Route Linked Account...");
-            //
-            //     const storeProfile = await knex('stores') // Use main knex instance (transaction committed)
-            //         .where('storeId', targetStoreId)
-            //         .select('storeName','storeEmail', 'legalBusinessName', 'storePhone', 'businessType', 'category', 'subcategory', 'registeredAddress')
-            //         .first();
-            //
-            //     if (!storeProfile) {
-            //         fastify.log.error({ targetStoreId }, "Store profile not found after OAuth commit. Critical: Cannot create Route Linked Account.");
-            //         // Do not throw here to allow OAuth success message, but this is a problem.
-            //     } else if (!storeProfile.storeEmail || !storeProfile.legalBusinessName || !storeProfile.businessType || !storeProfile.category || !storeProfile.registeredAddress) {
-            //         fastify.log.error({ targetStoreId, storeProfile }, "Store profile is missing mandatory fields for Route Linked Account creation. Critical: Cannot create Route Linked Account.");
-            //     } else {
-            //         const linkedAccountPayload = {
-            //             email: storeProfile.storeEmail,
-            //             phone: storeProfile.storePhone,
-            //             legal_business_name: storeProfile.legalBusinessName,
-            //             customer_facing_business_name: storeProfile.storeName,
-            //             type: "route",
-            //             business_type: storeProfile.businessType,
-            //             profile: {
-            //                 category: storeProfile.category,
-            //                 subcategory: storeProfile.subcategory, // API allows optional
-            //                 addresses: {
-            //                     registered: {
-            //                         street1: storeProfile.registeredAddress.street1,
-            //                         street2: storeProfile.registeredAddress.street2,
-            //                         city: storeProfile.registeredAddress.city,
-            //                         state: storeProfile.registeredAddress.state,
-            //                         // IMPORTANT: Razorpay often expects ISO 3166-1 alpha-2 country codes (e.g., "IN")
-            //                         // Your NewAddressForm stores full country names. You MAY need to convert this.
-            //                         country: storeProfile.registeredAddress.country.toLowerCase(), // Example: "India". Verify RZP requirement.
-            //                         postal_code: storeProfile.registeredAddress.postalCode
-            //                     },
-            //                 }
-            //             },
-            //         };
-            //
-            //         const platformRazorpayKeyId = process.env.RAZORPAY_KEY_ID;
-            //         const platformRazorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-            //
-            //         if (!platformRazorpayKeyId || !platformRazorpayKeySecret) {
-            //             fastify.log.error("Platform's Razorpay API keys for Route (RAZORPAY_KEY_ID_PLATFORM, RAZORPAY_KEY_SECRET_PLATFORM) are not configured. Cannot create Route Linked Account.");
-            //         } else {
-            //             const routeApiUrl = `https://api.razorpay.com/v2/accounts`;
-            //             const basicAuthToken = Buffer.from(`${platformRazorpayKeyId}:${platformRazorpayKeySecret}`).toString('base64');
-            //
-            //             fastify.log.info({ targetStoreId, url: routeApiUrl }, "Calling Razorpay Create Linked Account API.");
-            //             try {
-            //                 console.log('razorpay create linked account payload:', linkedAccountPayload);
-            //                 const linkedAccountResponse = await axios.post(routeApiUrl, linkedAccountPayload, {
-            //                     headers: {
-            //                         'Authorization': `Basic ${basicAuthToken}`,
-            //                         'Content-Type': 'application/json'
-            //                     },
-            //                     validateStatus: status => status < 500 // Handle 4xx as non-exceptions for detailed logging
-            //                 });
-            //                 console.log('razorpay create linked account response status:', linkedAccountResponse.status);
-            //                 console.log('razorpay create linked account response :', JSON.stringify(linkedAccountResponse.data, null, 2));
-            //                 if (linkedAccountResponse.status >= 200 && linkedAccountResponse.status < 300) {
-            //                     const linkedAccountData = linkedAccountResponse.data;
-            //                     const razorpayLinkedAccountId = linkedAccountData.id; // This is the 'la_...' ID
-            //                     fastify.log.info({ targetStoreId, razorpayAccountId: razorpayAffiliateAccountId, razorpayLinkedAccountId }, "Razorpay Route Linked Account created successfully.");
-            //
-            //                 } else {
-            //                     fastify.log.error({
-            //                         targetStoreId,
-            //                         razorpayAccountIdForRoute: razorpayAffiliateAccountId,
-            //                         statusCode: linkedAccountResponse.status,
-            //                         requestPayload: linkedAccountPayload, // Log payload for debugging
-            //                         responseData: linkedAccountResponse.data
-            //                     }, "Failed to create Razorpay Route Linked Account. API returned error.");
-            //                 }
-            //             } catch (routeApiError) { // Network error or non-4xx error from Axios
-            //                 fastify.log.error({ err: routeApiError, targetStoreId, razorpayAccountIdForRoute: razorpayAffiliateAccountId }, "Exception during Razorpay Route Linked Account API call.");
-            //             }
-            //         }
-            //     }
-            // } catch (routeSetupError) {
-            //     // This catches errors from fetching storeProfile or other logic within Step 7 block
-            //     fastify.log.error({ err: routeSetupError, targetStoreId }, "Error during setup phase for creating Route Linked Account (after OAuth commit).");
-            // }
-            // ***** NEW STEPS END HERE *****
-
+                .insert({ storeId: targetStoreId, razorpayCredentialId: credentialId })
+                .onConflict('storeId')
+                .merge({ razorpayCredentialId: credentialId, updated_at: new Date() });
 
             // --- Step 6: Commit Transaction ---
             await knexTx.commit();
-            fastify.log.info(`Transaction committed for store ${targetStoreId} Razorpay link.`);
-
-            // Create Route Linked Account and setup Route
-
-
-            // --- Step End: Reply to Frontend ---
-            return reply.send({ success: true, message: 'Razorpay account connected successfully.' });
+            logger.info({ razorpayAffiliateAccountId }, `Transaction committed. Starting post-OAuth setup.`);
 
         } catch (error) {
-            // Rollback transaction on any error
-            if (knexTx && !knexTx.isCompleted()) {
-                await knexTx.rollback();
-                fastify.log.warn('Transaction rolled back due to error during token exchange/storage.');
-            }
-            fastify.log.error({ err: error }, 'Error in /exchangeCodeForTokens route');
-
-            // Handle specific DB errors if needed (check constraints on NEW tables)
-            if (error.code === '23505') { // Postgres unique violation
-                if (error.constraint && error.constraint.includes('razorpay_credentials_razorpayaccountid_unique')) {
-                    return reply.status(500).send({ success: false, error: 'Internal Server Error (RZP ID Conflict).' }); // Should be handled by upsert
-                }
-                if (error.constraint && error.constraint.includes('store_razorpay_links_storeid_unique')) {
-                    return reply.status(500).send({ success: false, error: 'Internal Server Error (Store Link Conflict).' });// Should be handled by upsert
-                }
-            }
-            return reply.status(500).send({ success: false, error: error.message || 'An internal server error occurred.' });
+            if (knexTx && !knexTx.isCompleted()) await knexTx.rollback();
+            logger.error({ err: error }, 'Error during primary OAuth transaction.');
+            return reply.status(500).send({ success: false, error: 'An error occurred during account connection.' });
         }
+
+        // ----- Post-Transaction Setup: All subsequent steps are handled outside the transaction -----
+// routes/razorpay/exchangeCodeForTokens.js
+
+        'use strict';
+
+        const knex = require('@database/knexInstance'); // Adjust path to your Knex instance
+        const axios = require('axios');
+        const { encryptText, decryptText } = require("../../../utils/encryption"); // Adjust path and function names as needed
+
+        /**
+         * Helper function to update the setup status for a given credential record.
+         * @param {object} logger - The Fastify logger instance.
+         * @param {string} razorpayAffiliateAccountId - The ID to find the record.
+         * @param {string} status - The new status to set.
+         */
+        const updateSetupStatus = async (logger, razorpayAffiliateAccountId, status) => {
+            try {
+                await knex('razorpay_credentials')
+                    .where({ razorpayAffiliateAccountId })
+                    .update({ setupStatus: status, updated_at: new Date() });
+                logger.info({ razorpayAffiliateAccountId, newStatus: status }, "Updated Razorpay setup status.");
+            } catch (error) {
+                logger.error({ err: error, razorpayAffiliateAccountId, status }, "Failed to update setup status in DB.");
+                // Non-fatal, as the primary operation might have succeeded. Log and monitor.
+            }
+        };
+
+        module.exports = async function (fastify) {
+            fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+                const logger = fastify.log;
+                const { code, state: receivedState, storeId } = request.body;
+                const initiatingMerchantId = request.user?.merchantId;
+
+                if (!code || !receivedState || !storeId || !initiatingMerchantId) {
+                    return reply.status(400).send({ success: false, error: 'Missing required parameters.' });
+                }
+
+                const storeAccess = await knex('merchantStores').where({ storeId, merchantId: initiatingMerchantId }).first('merchantStoreId');
+                if (!storeAccess) {
+                    return reply.status(403).send({ error: 'Forbidden: You do not have permission for this store.' });
+                }
+
+                const knexTx = await knex.transaction();
+                let razorpayAffiliateAccountId;
+                let credentialId;
+
+                try {
+                    // --- Steps 1-5: Atomic OAuth Data Processing ---
+                    const stateRecord = await knexTx('razorpay_oauth_states').where('state', receivedState).first();
+
+                    if (!stateRecord || new Date(stateRecord.expires_at) < new Date() || stateRecord.storeId !== storeId) {
+                        await knexTx.rollback();
+                        return reply.status(400).send({ success: false, error: 'Invalid or expired state parameter. Please try again.' });
+                    }
+                    const targetStoreId = stateRecord.storeId;
+                    await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del();
+
+                    const tokenResponse = await axios.post('https://auth.razorpay.com/token', {
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: process.env.RAZORPAY_REDIRECT_URI,
+                        client_id: process.env.RAZORPAY_CLIENT_ID,
+                        client_secret: process.env.RAZORPAY_CLIENT_SECRET,
+                    }, { headers: { 'Content-Type': 'application/json' } });
+
+                    const tokenData = tokenResponse.data;
+                    razorpayAffiliateAccountId = tokenData.razorpay_account_id;
+                    if (!razorpayAffiliateAccountId || !tokenData.access_token) {
+                        throw new Error("Token response from Razorpay was missing required account_id or access_token.");
+                    }
+
+                    const credentialData = {
+                        razorpayAffiliateAccountId,
+                        public_token: encryptText(tokenData.public_token),
+                        accessToken: encryptText(tokenData.access_token),
+                        refreshToken: tokenData.refresh_token ? encryptText(tokenData.refresh_token) : null,
+                        tokenExpiresAt: tokenData.expires_in ? new Date(Date.now() + (tokenData.expires_in * 1000)) : null,
+                        grantedScopes: Array.isArray(tokenData.scope) ? tokenData.scope.join(' ') : tokenData.scope,
+                        addedByMerchantId: initiatingMerchantId,
+                        setupStatus: 'oauth_complete' // Initial status after successful OAuth
+                    };
+
+                    const result = await knexTx('razorpay_credentials')
+                        .insert(credentialData)
+                        .onConflict('razorpayAffiliateAccountId')
+                        .merge()
+                        .returning('credentialId');
+
+                    credentialId = result[0]?.credentialId || (await knexTx('razorpay_credentials').where({ razorpayAffiliateAccountId }).first('credentialId'))?.credentialId;
+
+                    if (!credentialId) {
+                        throw new Error("Failed to find or create credential record after upsert.");
+                    }
+
+                    await knexTx('store_razorpay_links')
+                        .insert({ storeId: targetStoreId, razorpayCredentialId: credentialId })
+                        .onConflict('storeId')
+                        .merge({ razorpayCredentialId: credentialId, updated_at: new Date() });
+
+                    // --- Step 6: Commit Transaction ---
+                    await knexTx.commit();
+                    logger.info({ razorpayAffiliateAccountId }, `Transaction committed. Starting post-OAuth setup.`);
+
+                } catch (error) {
+                    if (knexTx && !knexTx.isCompleted()) await knexTx.rollback();
+                    logger.error({ err: error }, 'Error during primary OAuth transaction.');
+                    return reply.status(500).send({ success: false, error: 'An error occurred during account connection.' });
+                }
+
+// ----- Post-Transaction Setup: All subsequent steps are handled outside the transaction -----
+                // If any of these fail, we log, update the status, but still return success for the OAuth part.
+
+                const platformRazorpayKeyId = process.env.RAZORPAY_KEY_ID;
+                const platformRazorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+                const basicAuthToken = Buffer.from(`${platformRazorpayKeyId}:${platformRazorpayKeySecret}`).toString('base64');
+                const headers = { 'Authorization': `Basic ${basicAuthToken}`, 'Content-Type': 'application/json' };
+
+                // --- CORRECTED: Variables declared outside the try block to be accessible in catch ---
+                let newRazorpayRouteAccountId = null;
+                let productConfigId = null;
+                let failedStep = 0; // 0 indicates no post-transaction step has started
+
+                try {
+                    // --- Step 7: Create Razorpay Route Account ---
+                    failedStep = 7;
+                    const storeProfile = await knex('stores').where({ storeId }).first();
+                    if (!storeProfile) throw new Error(`Store profile not found for storeId ${storeId}`);
+
+                    const routeAccountPayload = {
+                        email: storeProfile.storeEmail, phone: storeProfile.storePhone,
+                        legal_business_name: storeProfile.legalBusinessName, customer_facing_business_name: storeProfile.storeName,
+                        type: "route", business_type: storeProfile.businessType,
+                        profile: {
+                            category: storeProfile.category, subcategory: storeProfile.subcategory,
+                            addresses: { registered: {
+                                    street1: storeProfile.registeredAddress.street1, street2: storeProfile.registeredAddress.street2,
+                                    city: storeProfile.registeredAddress.city, state: storeProfile.registeredAddress.state,
+                                    country: "IN", postal_code: storeProfile.registeredAddress.postalCode
+                                }}
+                        }
+                    };
+                    const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });
+                    newRazorpayRouteAccountId = routeAccountResponse.data.id;
+
+                    await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayLinkedAccountId: newRazorpayRouteAccountId });
+                    await updateSetupStatus(logger, razorpayAffiliateAccountId, 'route_account_created');
+
+                    // --- Step 8: Create Stakeholder ---
+                    failedStep = 8;
+                    const profileRecord = await knex('store_bank_accounts').where({ storeId }).first();
+                    if (!profileRecord) throw new Error(`Stakeholder/Bank details not found for store ${storeId}`);
+
+                    const stakeholderPayload = {
+                        name: decryptText(profileRecord.stakeholder_name_encrypted),
+                        email: decryptText(profileRecord.stakeholder_email_encrypted),
+                        kyc: { pan: decryptText(profileRecord.stakeholder_pan_encrypted) },
+                    };
+                    if (!stakeholderPayload.name || !stakeholderPayload.email || !stakeholderPayload.kyc.pan) throw new Error(`Decryption failed for stakeholder details of store ${storeId}`);
+
+                    await axios.post(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/stakeholders`, stakeholderPayload, { headers });
+                    await updateSetupStatus(logger, razorpayAffiliateAccountId, 'stakeholder_created');
+
+                    // --- Step 9: Request Product Configuration ---
+                    failedStep = 9;
+                    const productConfigPayload = { product_name: "route", tnc_accepted: true };
+                    const productConfigResponse = await axios.post(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/products`, productConfigPayload, { headers });
+                    productConfigId = productConfigResponse.data.id;
+                    await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayProductConfigId: productConfigId });
+                    await updateSetupStatus(logger, razorpayAffiliateAccountId, 'product_requested');
+
+                    // --- Step 10: Update Product Configuration with Bank Details ---
+                    failedStep = 10;
+                    const productUpdatePayload = {
+                        settlements: {
+                            account_number: decryptText(profileRecord.accountNumber_encrypted),
+                            ifsc_code: decryptText(profileRecord.ifscCode_encrypted),
+                            beneficiary_name: decryptText(profileRecord.beneficiaryName_encrypted),
+                        },
+                        tnc_accepted: true
+                    };
+                    if (!productUpdatePayload.settlements.account_number || !productUpdatePayload.settlements.ifsc_code || !productUpdatePayload.settlements.beneficiary_name) {
+                        throw new Error(`Decryption failed for bank details of store ${storeId}`);
+                    }
+                    await axios.patch(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/products/${productConfigId}`, productUpdatePayload, { headers });
+                    await updateSetupStatus(logger, razorpayAffiliateAccountId, 'complete');
+
+                    logger.info({ razorpayAffiliateAccountId }, "Full Razorpay Route setup completed successfully.");
+
+                } catch (setupError) {
+                    const statusUpdateMap = {
+                        7: 'route_account_failed', 8: 'stakeholder_creation_failed',
+                        9: 'product_request_failed', 10: 'product_update_failed',
+                    };
+                    // Now this logic will work correctly
+                    if (razorpayAffiliateAccountId && failedStep > 0) {
+                        await updateSetupStatus(logger, razorpayAffiliateAccountId, statusUpdateMap[failedStep]);
+                    }
+                    // Corrected typo from `failedAtStep` to `failedStep`
+                    logger.error({ err: setupError.response?.data || setupError.message, failedStep }, "A failure occurred during post-OAuth setup.");
+                }
+
+                // --- Final Reply to Frontend ---
+                // We always return success here because the primary OAuth connection was successful.
+                // The frontend should use the /status endpoint to check the detailed setupStatus.
+                return reply.send({ success: true, message: 'Razorpay account connected. Finalizing setup.' });
+            });
+        };
     });
 };

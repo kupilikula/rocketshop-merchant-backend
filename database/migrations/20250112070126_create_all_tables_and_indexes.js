@@ -135,12 +135,31 @@ exports.up = async function (knex) {
     });
     console.log("Created table: razorpay_oauth_states.");
 
+    await knex.schema.createTable('store_bank_accounts', function(table) {
+        // This column is both the Primary Key and the Foreign Key to the 'stores' table.
+        // This enforces a strict one-to-one relationship: one store can have only one bank account record.
+        table.uuid('storeId').primary();
+        table.foreign('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
+
+        // Store encrypted bank details. Storing as 'text' is safe for encrypted output.
+        table.text('beneficiaryName_encrypted').notNullable();
+        table.text('accountNumber_encrypted').notNullable();
+        table.text('ifscCode_encrypted').notNullable();
+        table.text('stakeholder_name_encrypted').nullable();
+        table.text('stakeholder_email_encrypted').nullable();
+        table.text('stakeholder_pan_encrypted').nullable();
+        // Standard created_at and updated_at timestamps
+        table.timestamps(true, true);
+    });
+
     // Central table to store unique credentials for each linked Razorpay Account
     console.log("Creating table: razorpay_credentials...");
     await knex.schema.createTable('razorpay_credentials', function(table) {
         table.uuid('credentialId').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.string('razorpayAffiliateAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
         table.string('razorpayLinkedAccountId').nullable();
+        table.string('razorpayProductConfigId').nullable();
+        table.string('setupStatus').notNullable().defaultTo('oauth_complete');
         table.string('public_token').notNullable(); // Store encrypted token
         table.text('accessToken').notNullable(); // Store encrypted token
         table.text('refreshToken').nullable(); // Store encrypted token (if available)
