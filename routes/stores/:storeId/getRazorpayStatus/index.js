@@ -4,14 +4,14 @@
 
 const knex = require('@database/knexInstance'); // <<< ADJUST path to your Knex instance
 const axios = require('axios');
-const { decryptText } = require("../../../utils/encryption"); // <<< Ensure path is correct
+const { decryptText } = require("../../../../utils/encryption"); // <<< Ensure path is correct
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v2';
 const API_TIMEOUT = 7000;
 
 module.exports = async function (fastify, opts) {
     // The route would be mounted under a prefix, e.g., GET /stores/:storeId/razorpay/status
-    fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    fastify.get('/', async (request, reply) => {
         const { storeId } = request.params;
         const merchantId = request.user?.merchantId;
         const logger = fastify.log;
