@@ -46,7 +46,7 @@ const updateSetupStatus = async (logger, razorpayAffiliateAccountId, status) => 
 };
 
 module.exports = async function (fastify) {
-    fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    fastify.post('/', async (request, reply) => {
         const logger = fastify.log;
         const { code, state: receivedState, storeId } = request.body;
         const initiatingMerchantId = request.user?.merchantId;
