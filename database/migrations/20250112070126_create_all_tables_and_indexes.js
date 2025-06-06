@@ -340,10 +340,10 @@ exports.up = async function (knex) {
     await knex.schema.createTable('customer_cart_checkouts', (table) => {
         table.uuid('checkoutId').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
-        table.text('cartSummaryHash').notNullable();
+        table.text('checkoutHash').notNullable();
         table.jsonb('platformOrderIds').nullable();
         table.timestamp('created_at').defaultTo(knex.fn.now());
-        table.index(['customerId', 'cartSummaryHash', 'created_at'], 'idx_checkout_lookup');
+        table.index(['customerId', 'checkoutHash', 'created_at'], 'idx_checkout_lookup');
     });
 
     // Create `offers` table
