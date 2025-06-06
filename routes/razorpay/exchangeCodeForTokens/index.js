@@ -121,7 +121,24 @@ module.exports = async function (fastify) {
             const storeProfile = await knex('stores').where({ storeId }).first();
             if (!storeProfile) throw new Error(`Store profile not found`);
             const routeAccountPayload = {
-                email: storeProfile.storeEmail, phone: storeProfile.storePhone, legal_business_name: storeProfile.legalBusinessName, customer_facing_business_name: storeProfile.storeName, type: "route", business_type: storeProfile.businessType, profile: { category: storeProfile.category, subcategory: storeProfile.subcategory, addresses: { registered: { street1: storeProfile.registeredAddress.street1, street2: storeProfile.registeredAddress.street2, city: storeProfile.registeredAddress.city, state: storeProfile.registeredAddress.state, country: "IN", postal_code: storeProfile.registeredAddress.postalCode }}}
+                email: storeProfile.storeEmail,
+                phone: storeProfile.storePhone,
+                legal_business_name: storeProfile.legalBusinessName,
+                customer_facing_business_name: storeProfile.storeName,
+                type: "route",
+                business_type: storeProfile.businessType,
+                profile: {
+                    category: storeProfile.category,
+                    subcategory: storeProfile.subcategory,
+                    addresses: {
+                        registered: {
+                            street1: storeProfile.registeredAddress.street1,
+                            street2: storeProfile.registeredAddress.street2,
+                            city: storeProfile.registeredAddress.city,
+                            state: storeProfile.registeredAddress.state,
+                            country: "IN",
+                            postal_code: storeProfile.registeredAddress.postalCode
+                        }}}
             };
             logger.info({ payload: maskSensitiveData(routeAccountPayload) }, "Calling 'Create Route Account' API...");
             const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });

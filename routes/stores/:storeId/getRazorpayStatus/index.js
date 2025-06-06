@@ -86,8 +86,8 @@ module.exports = async function (fastify, opts) {
             // If setup is already complete, we can fetch live data.
             // If setup is NOT complete, we might not need to call Razorpay's API yet,
             // but for simplicity and to always get the latest live `status`, we will call it.
-            const keyId = process.env.RAZORPAY_KEY_ID_PLATFORM;
-            const keySecret = process.env.RAZORPAY_KEY_SECRET_PLATFORM;
+            const keyId = process.env.RAZORPAY_KEY_ID;
+            const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
             if (!keyId || !keySecret) {
                 logger.error({ storeId, razorpayLinkedAccountId }, "Platform Razorpay API Keys are not configured on backend.");
