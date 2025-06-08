@@ -24,7 +24,7 @@ module.exports = async function (fastify, opts) {
             let effectiveType = type;
 
         if (!identifier || !type || !context) {
-            return reply.status(400).send({ error: 'Phone number and context are required' });
+            return reply.status(400).send({ error: 'Identifier, type and context are required' });
         }
 
             if (type === 'email' && !isValidEmail(identifier)) {

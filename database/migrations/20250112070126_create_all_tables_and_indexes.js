@@ -293,7 +293,7 @@ exports.up = async function (knex) {
         table.jsonb("deliveryAddress").defaultTo("{}");
         table.decimal("orderTotal", 10, 2).notNullable();
         table.timestamp("orderDate").defaultTo(knex.fn.now());
-        table.string('paymentId').nullable().index(); // Add nullable paymentId column, index optional
+        table.string('razorpayOrderId').nullable().index();
         table.timestamps(true, true);
     });
 
@@ -341,7 +341,7 @@ exports.up = async function (knex) {
         table.uuid('checkoutId').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.uuid('customerId').notNullable().references('customerId').inTable('customers').onDelete('CASCADE');
         table.text('checkoutHash').notNullable();
-        table.jsonb('platformOrderIds').nullable();
+        table.uuid('platformOrderId').nullable();
         table.timestamp('created_at').defaultTo(knex.fn.now());
         table.index(['customerId', 'checkoutHash', 'created_at'], 'idx_checkout_lookup');
     });
