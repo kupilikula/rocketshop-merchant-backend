@@ -4,7 +4,7 @@
 
 const knex = require('@database/knexInstance');
 const axios = require('axios');
-const { decryptText } = require("../../../utils/encryption");
+const { decryptText } = require("../../../../utils/encryption");
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v2';
 const API_TIMEOUT = 7000;
