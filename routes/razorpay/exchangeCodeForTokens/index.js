@@ -75,10 +75,12 @@ module.exports = async function (fastify) {
             await knexTx('razorpay_oauth_states').where({ id: stateRecord.id }).del();
 
             const tokenPayload = {
-                grant_type: 'authorization_code', code,
+                grant_type: 'authorization_code',
+                code,
                 redirect_uri: process.env.RAZORPAY_REDIRECT_URI,
                 client_id: process.env.RAZORPAY_CLIENT_ID,
                 client_secret: process.env.RAZORPAY_CLIENT_SECRET,
+                mode: process.env.NODE_ENV === 'production' ? 'live' : 'test',
             };
             logger.info({ payload: {...tokenPayload, client_secret: '***'} }, "Calling Razorpay Token Exchange API...");
             const tokenResponse = await axios.post('https://auth.razorpay.com/token', tokenPayload, { headers: { 'Content-Type': 'application/json' } });
