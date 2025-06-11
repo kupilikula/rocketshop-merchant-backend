@@ -10,7 +10,7 @@ const RAZORPAY_API_BASE = 'https://api.razorpay.com/v2';
 const API_TIMEOUT = 7000;
 
 module.exports = async function (fastify, opts) {
-    fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    fastify.get('/', async (request, reply) => {
         const { storeId } = request.params;
         const merchantId = request.user?.merchantId;
         const logger = fastify.log;
