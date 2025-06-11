@@ -159,6 +159,7 @@ exports.up = async function (knex) {
         table.string('razorpayAffiliateAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
         table.string('razorpayLinkedAccountId').nullable();
         table.string('razorpayProductConfigId').nullable();
+        table.string('razorpayStakeholderId').nullable();
         table.string('setupStatus').notNullable().defaultTo('oauth_complete');
         table.string('public_token').notNullable(); // Store encrypted token
         table.text('accessToken').notNullable(); // Store encrypted token

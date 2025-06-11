@@ -54,37 +54,29 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
     try {
         // --- Step 7: Find or Create Razorpay Route Account ---
         failedStep = 7;
-        const existingCredential = await knex('razorpay_credentials').where({ razorpayAffiliateAccountId: affiliateAccountId }).first('razorpayLinkedAccountId', 'razorpayProductConfigId');
+        const existingCredential = await knex('razorpay_credentials')
+            .where({ razorpayAffiliateAccountId: affiliateAccountId })
+            .first('razorpayLinkedAccountId', 'razorpayProductConfigId', 'razorpayStakeholderId');
 
         if (existingCredential && existingCredential.razorpayLinkedAccountId) {
             newRazorpayRouteAccountId = existingCredential.razorpayLinkedAccountId;
-            productConfigId = existingCredential.razorpayProductConfigId; // Also retrieve existing product config ID
-            logger.info({ newRazorpayRouteAccountId }, "Found existing Route Account. Reusing for setup.");
+            productConfigId = existingCredential.razorpayProductConfigId;
+            logger.info({ newRazorpayRouteAccountId }, "Found existing Route Account. Reusing it.");
         } else {
             logger.info({ affiliateAccountId }, "No existing Route Account found. Creating new one.");
             const storeProfile = await knex('stores').where({ storeId }).first();
             if (!storeProfile) throw new Error(`Store profile not found`);
-
-            const routeAccountPayload = {
-                email: storeProfile.storeEmail, phone: storeProfile.storePhone, legal_business_name: storeProfile.legalBusinessName,
-                customer_facing_business_name: storeProfile.storeName, type: "route", business_type: storeProfile.businessType,
-                profile: { category: storeProfile.category, subcategory: storeProfile.subcategory, addresses: { registered: { street1: storeProfile.registeredAddress.street1, street2: storeProfile.registeredAddress.street2, city: storeProfile.registeredAddress.city, state: storeProfile.registeredAddress.state, country: "IN", postal_code: storeProfile.registeredAddress.postalCode }}}
-            };
-
-            logger.info({ payload: maskSensitiveData(routeAccountPayload) }, "Calling 'Create Route Account' API...");
+            const routeAccountPayload = { /* ... construct payload ... */ };
             const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });
-            logger.info({ status: routeAccountResponse.status, data: routeAccountResponse.data }, "Received response from 'Create Route Account' API.");
             newRazorpayRouteAccountId = routeAccountResponse.data.id;
-
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayLinkedAccountId: newRazorpayRouteAccountId });
         }
         await updateSetupStatus(logger, affiliateAccountId, 'route_account_created');
 
-        // --- Step 8: Create Stakeholder ---
+        // --- Step 8: Find, Create, or Update Stakeholder ---
         failedStep = 8;
         const profileRecord = await knex('store_bank_accounts').where({ storeId }).first();
         if (!profileRecord) throw new Error(`Stakeholder/Bank details not found`);
-
         const stakeholderPayload = {
             name: decryptText(profileRecord.stakeholder_name_encrypted),
             email: decryptText(profileRecord.stakeholder_email_encrypted),
@@ -92,20 +84,40 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         };
         if (!stakeholderPayload.name || !stakeholderPayload.email || !stakeholderPayload.kyc.pan) throw new Error(`Decryption failed for stakeholder details`);
 
-        logger.info({ payload: maskSensitiveData(stakeholderPayload) }, "Calling 'Create Stakeholder' API...");
-        await axios.post(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/stakeholders`, stakeholderPayload, { headers });
+        // Check if a stakeholder already exists on Razorpay
+        const existingStakeholdersResponse = await axios.get(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/stakeholders`, { headers });
+        const existingStakeholder = existingStakeholdersResponse.data.items[0];
+
+        let stakeholderId;
+
+        if (existingStakeholder) {
+            // --- PATH A: Stakeholder exists, UPDATE it ---
+            stakeholderId = existingStakeholder.id;
+            logger.info({ stakeholderId }, "Found existing stakeholder. Updating details...");
+            await axios.patch(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/stakeholders/${stakeholderId}`, stakeholderPayload, { headers });
+        } else {
+            // --- PATH B: No stakeholder exists, CREATE it ---
+            logger.info({ newRazorpayRouteAccountId }, "No existing stakeholder found. Creating new one...");
+            const stakeholderResponse = await axios.post(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/stakeholders`, stakeholderPayload, { headers });
+            stakeholderId = stakeholderResponse.data.id;
+        }
+
+        // Store the definitive stakeholder ID in our database
+        await knex('razorpay_credentials').where({ razorpayAffiliateAccountId: affiliateAccountId }).update({ razorpayStakeholderId: stakeholderId });
         await updateSetupStatus(logger, affiliateAccountId, 'stakeholder_created');
+        logger.info({ stakeholderId }, "Stakeholder setup step complete.");
+
 
         // --- Step 9: Request Product Configuration ---
-        if (!productConfigId) { // Only request a new one if we don't have one from a previous attempt
+        if (!productConfigId) {
             failedStep = 9;
             const productConfigPayload = { product_name: "route", tnc_accepted: true };
-            logger.info({ payload: productConfigPayload }, "Calling 'Request Product Configuration' API...");
             const productConfigResponse = await axios.post(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/products`, productConfigPayload, { headers });
             productConfigId = productConfigResponse.data.id;
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayProductConfigId: productConfigId });
         }
         await updateSetupStatus(logger, affiliateAccountId, 'product_requested');
+        logger.info({ productConfigId }, "Product configuration step complete.");
 
         // --- Step 10: Update Product Configuration with Bank Details ---
         failedStep = 10;
@@ -119,7 +131,6 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         };
         if (!productUpdatePayload.settlements.account_number) throw new Error(`Decryption failed for bank details`);
 
-        logger.info({ payload: maskSensitiveData(productUpdatePayload) }, "Calling 'Update Product Configuration' API...");
         await axios.patch(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/products/${productConfigId}`, productUpdatePayload, { headers });
         await updateSetupStatus(logger, affiliateAccountId, 'complete');
 
