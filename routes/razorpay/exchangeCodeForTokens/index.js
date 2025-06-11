@@ -78,15 +78,10 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         const liveAccountStatus = accountDetailsResponse.data.status;
         logger.info({ newRazorpayRouteAccountId, liveAccountStatus }, "Received live account status.");
 
-        if (liveAccountStatus === 'activated') {
+        if (liveAccountStatus === 'created') {
             logger.info({ newRazorpayRouteAccountId }, "Account is already activated on Razorpay. Marking local setup as complete.");
             await updateSetupStatus(logger, affiliateAccountId, 'complete');
             return; // End the setup process here.
-        }
-        if (liveAccountStatus === 'under_review') {
-            logger.info({ newRazorpayRouteAccountId }, "Account is under review by Razorpay. No further API actions will be taken.");
-            await updateSetupStatus(logger, affiliateAccountId, 'under_review');
-            return; // End the setup process.
         }
 
         // --- Step 8: Find, Create, or Update Stakeholder ---
