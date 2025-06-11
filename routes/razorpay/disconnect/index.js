@@ -6,11 +6,11 @@ module.exports = async function (fastify, opts) {
 
     fastify.post('/', async function (request, reply) {
         const logger = fastify.log;
-        const { storeId } = request.params;
+        const { storeId } = request.body;
         const merchantId = request.user.merchantId;
 
         if (!storeId) {
-            return reply.status(400).send({ error: 'A storeId path parameter is required.' });
+            return reply.status(400).send({ error: 'A storeId is required.' });
         }
 
         logger.info({ merchantId, storeId }, "Attempting to disconnect Razorpay link for store.");
