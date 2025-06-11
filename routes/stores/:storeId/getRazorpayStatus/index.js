@@ -96,8 +96,8 @@ module.exports = async function (fastify, opts) {
             let accountName = null, accountEmail = null, liveRazorpayStatus = null, detailError = null;
             try {
                 // Fetch live details from Razorpay API
-                const keyId = process.env.RAZORPAY_KEY_ID_PLATFORM;
-                const keySecret = process.env.RAZORPAY_KEY_SECRET_PLATFORM;
+                const keyId = process.env.RAZORPAY_KEY_ID;
+                const keySecret = process.env.RAZORPAY_KEY_SECRET;
                 const basicAuthToken = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
                 const accountApiUrl = `${RAZORPAY_API_BASE}/accounts/${razorpayLinkedAccountId}`;
 
