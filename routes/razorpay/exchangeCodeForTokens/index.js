@@ -73,6 +73,22 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         }
         await updateSetupStatus(logger, affiliateAccountId, 'route_account_created');
 
+        logger.info({ newRazorpayRouteAccountId }, "Fetching live status of Route Account from Razorpay...");
+        const accountDetailsResponse = await axios.get(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}`, { headers });
+        const liveAccountStatus = accountDetailsResponse.data.status;
+        logger.info({ newRazorpayRouteAccountId, liveAccountStatus }, "Received live account status.");
+
+        if (liveAccountStatus === 'activated') {
+            logger.info({ newRazorpayRouteAccountId }, "Account is already activated on Razorpay. Marking local setup as complete.");
+            await updateSetupStatus(logger, affiliateAccountId, 'complete');
+            return; // End the setup process here.
+        }
+        if (liveAccountStatus === 'under_review') {
+            logger.info({ newRazorpayRouteAccountId }, "Account is under review by Razorpay. No further API actions will be taken.");
+            await updateSetupStatus(logger, affiliateAccountId, 'under_review');
+            return; // End the setup process.
+        }
+
         // --- Step 8: Find, Create, or Update Stakeholder ---
         failedStep = 8;
         const profileRecord = await knex('store_bank_accounts').where({ storeId }).first();
