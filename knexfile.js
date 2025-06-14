@@ -18,10 +18,10 @@ module.exports = {
       ssl: { rejectUnauthorized: false },
     },
     migrations: {
-      directory: './migrations',
+      directory: './database/migrations',
     },
     seeds: {
-      directory: './seeds',
+      directory: './database/seeds',
     }
   },
   production: {
@@ -35,7 +35,7 @@ module.exports = {
       ssl: { rejectUnauthorized: false },
     },
     migrations: {
-      directory: './migrations',
+      directory: './database/migrations',
     },
   },
 };
