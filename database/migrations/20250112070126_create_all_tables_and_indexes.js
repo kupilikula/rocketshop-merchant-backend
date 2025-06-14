@@ -46,6 +46,18 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable('storePolicies', table => {
+        table.uuid('storePolicyId').primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE').notNullable().unique();
+        table.integer('handlingTimeDays').notNullable().defaultTo(2);            // time before dispatch
+        table.integer('cancellationWindowHours').notNullable().defaultTo(12);
+        table.boolean('returnsAccepted').notNullable().defaultTo(true);
+        table.integer('returnWindowDays').notNullable().defaultTo(7);
+        table.integer('refundProcessingTimeDays').notNullable().defaultTo(5);
+        table.timestamp('updatedAt').defaultTo(knex.fn.now());
+        table.index(['storeId']);
+    });
+
     await knex.schema.createTable('storeSettings', (table) => {
         table.uuid('storeId').primary().references('storeId').inTable('stores').onDelete('CASCADE');
         table.boolean('defaultGstInclusive').defaultTo(true);

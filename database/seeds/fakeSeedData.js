@@ -111,6 +111,32 @@ exports.seed = async function (knex) {
     await knex('storeSettings').insert(storeSettings);
     console.log('StoreSettings seeded.');
 
+
+    console.log('Seeding storePolicies...');
+
+    const storePolicies = stores.map(store => {
+        const returnsAccepted = faker.datatype.boolean();
+        return {
+            storeId: store.storeId,
+            // realistic randoms
+            handlingTimeDays: faker.number.int({ min: 0, max: 5 }),           // 0–5 days
+            cancellationWindowHours: faker.helpers.arrayElement([6, 12, 24, 48]),  // common windows
+            returnsAccepted,
+
+            // if returns aren’t accepted, DB expects 0 here
+            returnWindowDays: returnsAccepted
+                ? faker.number.int({ min: 3, max: 30 })
+                : 0,
+
+            refundProcessingTimeDays: faker.number.int({ min: 1, max: 7 }),
+
+            // align timestamps with the parent store record
+            updatedAt: store.updated_at, // or `new Date()` if you prefer
+        };
+    });
+
+    await knex('storePolicies').insert(storePolicies);
+
     // Seed merchantStores
     console.log('Seeding merchantStores...');
     const merchantStores = [];
