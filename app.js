@@ -50,6 +50,7 @@ module.exports = async function (fastify, opts) {
 
   fastify.addHook('onRequest', async (request, reply) => {
     const publicRoutes = [
+        '/health',
         '/invite',
         '/sendOtp',
         '/verifyOtp',
