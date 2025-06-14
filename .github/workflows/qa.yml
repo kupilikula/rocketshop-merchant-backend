@@ -3,7 +3,7 @@ name: Deploy Merchant Backend to QA
 on:
   push:
     branches:
-      - develop # Trigger on pushes to develop branch
+      - qa # Trigger on pushes to develop branch
 
 jobs:
   deploy:
