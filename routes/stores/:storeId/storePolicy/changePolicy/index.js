@@ -1,8 +1,9 @@
 // plugins/policiesRoutes.ts
 
+'use strict';
 const knex = require('@database/knexInstance');
 
-export default async function changePolicy(fastify) {
+module.exports = async function (fastify, opts) {
     fastify.post('/', async (req, reply) => {
             const { storeId } = req.params;
             const data = { ...req.body, updatedAt: knex.fn.now() };

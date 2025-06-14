@@ -1,8 +1,10 @@
 // plugins/policiesRoutes.ts
 
+'use strict';
+
 const knex = require('@database/knexInstance');
 
-export default async function getPolicy(fastify) {
+module.exports = async function (fastify, opts) {
     /* GET  /stores/:storeId/policy */
     fastify.get('/', async (req, reply) => {
             const { storeId } = req.params;
