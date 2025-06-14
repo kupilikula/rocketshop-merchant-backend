@@ -115,7 +115,7 @@ jobs:
             # 6. Database Migrations (Uncomment when ready)
             # echo "6. Running database migrations..."
             # Ensure knexfile uses dotenv or process.env correctly
-            # npx knex migrate:latest --knexfile ./knexfile.js
+             npx knex migrate:latest
 
             # 7. Reload/Start App
             echo "7. Reloading/Starting application via pm2..."
