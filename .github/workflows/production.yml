@@ -39,10 +39,7 @@ jobs:
           # should start at indentation level 10 or 12 (consistently).
           script: |
             set -e # Exit script immediately if any command fails
-            
-            mkdir -p ~/.ssh
-            ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-            
+                        
             # --- Server Variables ---
             APP_DIR="/home/${{ secrets.PROD_DEPLOYER_USER }}/merchant-backend"
             REPO_URL="git@github.com:RocketShopIndia/merchant-backend.git"
