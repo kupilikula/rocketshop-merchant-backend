@@ -561,7 +561,6 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("razorpay_order_mapping");
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
-    await knex.schema.dropTableIfExists("orders");
     await knex.schema.dropTableIfExists("product_reviews");
     await knex.schema.dropTableIfExists("store_reviews");
     await knex.schema.dropTableIfExists("customer_followed_stores");
@@ -572,12 +571,14 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
     await knex.schema.dropTableIfExists("customers");
+    await knex.schema.dropTableIfExists("orders");
     await knex.schema.dropTableIfExists("productVariants");
     await knex.schema.dropTableIfExists("variantGroups");
     await knex.schema.dropTableIfExists("productCollections");
     await knex.schema.dropTableIfExists("products");
     await knex.schema.dropTableIfExists("collections");
     await knex.schema.dropTableIfExists("merchantStores");
+    await knex.schema.dropTableIfExists("storePolicies");
     await knex.schema.dropTableIfExists("storeSettings");
     await knex.schema.dropTableIfExists("stores");
     await knex.schema.dropTableIfExists("merchants");
