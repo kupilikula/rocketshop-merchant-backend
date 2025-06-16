@@ -169,8 +169,9 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
 
                 log.info({
                     storeId,
-                    razorpaySubscriptionId
-                }, "Event: subscription.charged. Activating store and creating subscription record.");
+                    razorpaySubscriptionId,
+                    eventType,
+                }, `Event: ${eventType}. Activating store and creating subscription record.`);
 
                 const existingSub = await trx('storeSubscriptions').where({razorpaySubscriptionId}).first();
                 if (existingSub) {
