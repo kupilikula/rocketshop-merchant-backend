@@ -47,7 +47,6 @@ module.exports = async function (fastify, opts) {
             if (!subscription) {
                 // No subscription record found at all
                 return reply.send({
-                    isActive: store ? store.isActive : false,
                     planName: null,
                     subscriptionStatus: 'not_found',
                     renewsOn: null,
@@ -56,7 +55,6 @@ module.exports = async function (fastify, opts) {
 
             // Found a subscription, so format the response for the frontend
             const responsePayload = {
-                isActive: store.isActive,
                 planName: planIdToNameMap[subscription.razorpayPlanId],
                 subscriptionStatus: subscription.subscriptionStatus,
                 renewsOn: subscription.currentPeriodEnd, // This is a timestamp

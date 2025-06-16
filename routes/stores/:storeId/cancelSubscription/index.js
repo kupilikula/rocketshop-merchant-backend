@@ -43,13 +43,13 @@ module.exports = async function (fastify, opts) {
                 activeSubscription.razorpaySubscriptionId,
                 { cancel_at_cycle_end: true }
             );
-
+            console.log('cancelled sub:', cancelledRazorpaySub);
             // 3. Update your database to reflect the cancellation
             // The status will become 'cancelled'. The user's store remains `isActive` for now.
             await knex('storeSubscriptions')
                 .where('subscriptionId', activeSubscription.subscriptionId)
                 .update({
-                    subscriptionStatus: cancelledRazorpaySub.status, // Should now be 'cancelled'
+                    subscriptionStatus: 'cancelled',
                     updated_at: new Date()
                 });
 
