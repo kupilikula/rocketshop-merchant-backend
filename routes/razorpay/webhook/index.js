@@ -194,8 +194,8 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                         subscriptionId: uuidv4(), // Generate a new UUID for the primary key
                         storeId: storeId,
                         razorpayPlanId: subscription.plan_id,
-                        razorpaySubscriptionId: subscription.id,
-                        subscriptionStatus: subscription.status, // Should be 'active'
+                        razorpaySubscriptionId: razorpaySubscriptionId,
+                        subscriptionStatus: 'active',
                         currentPeriodStart: db.raw('to_timestamp(?)', [subscription.current_start]),
                         currentPeriodEnd: db.raw('to_timestamp(?)', [subscription.current_end]),
                     });
