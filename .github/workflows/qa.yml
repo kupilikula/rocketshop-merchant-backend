@@ -96,6 +96,8 @@ jobs:
             RAZORPAY_REDIRECT_URI='${{ secrets.QA_RAZORPAY_REDIRECT_URI }}'
             RAZORPAY_SCOPES='${{ secrets.QA_RAZORPAY_SCOPES }}'
             RAZORPAY_WEBHOOK_SECRET='${{ secrets.QA_RAZORPAY_WEBHOOK_SECRET }}'
+            MONTHLY_SUBSCRIPTION_PLAN_ID='${{ secrets.QA_MONTHLY_SUBSCRIPTION_PLAN_ID }}'
+            ANNUAL_SUBSCRIPTION_PLAN_ID='${{ secrets.QA_ANNUAL_SUBSCRIPTION_PLAN_ID }}'
             ENCRYPTION_KEY='${{ secrets.QA_ENCRYPTION_KEY }}'
             EOF
             echo "   .env file created successfully."

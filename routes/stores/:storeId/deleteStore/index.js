@@ -18,17 +18,45 @@ const BUCKET_NAME = process.env.SPACES_BUCKET_NAME;
 module.exports = async function (fastify, opts) {
     fastify.post('/', async function (request, reply) {
         const { storeId } = request.params;
-        const { phone, otp } = request.body;
         const requestingMerchantId = request.user.merchantId;
 
-        // 1. Verify OTP
-        const latestOtp = await knex('otp_verification')
-            .where({ phone, context: "DELETE_STORE" ,app: 'merchant' })
-            .orderBy('created_at', 'desc')
-            .first();
+        const { identifier, type, otp } = request.body;
 
-        if (!latestOtp || latestOtp.otp !== otp || !latestOtp.isVerified) {
-            return reply.status(401).send({ error: 'Invalid or expired OTP' });
+        // --- 1. UPDATED: Input Validation ---
+        if (!identifier || !type || !otp) {
+            return reply.status(400).send({ error: 'Identifier, type, and OTP are required.' });
+        }
+        if (type === 'email' && !isValidEmail(identifier)) {
+            return reply.status(400).send({ error: 'Invalid email format provided.' });
+        } else if (type === 'phone' && !isValidE164Phone(identifier)) {
+            return reply.status(400).send({ error: 'Invalid phone number format. Expected E.164.' });
+        }
+        // Security check
+        if (request.user.phone !== identifier && request.user.email !== identifier) {
+            return reply.status(403).send({ error: 'Identifier does not match the authenticated user.' });
+        }
+
+
+        // --- 2. UPDATED: Robust OTP Verification ---
+        let otpQuery = knex('otp_verification')
+            .where({
+                context: 'DELETE_STORE', // This context is specific to deleting a store
+                app: 'merchant',
+                otp: otp,
+                isVerified: true
+            })
+            .orderBy('created_at', 'desc');
+
+        if (type === 'phone') {
+            otpQuery = otpQuery.andWhere({ phone: identifier });
+        } else { // type === 'email'
+            otpQuery = otpQuery.andWhere({ email: identifier });
+        }
+        const latestOtp = await otpQuery.first();
+
+        if (!latestOtp) {
+            fastify.log.warn({ msg: 'Delete store attempt with invalid/unverified OTP.', identifier, storeId });
+            return reply.status(401).send({ error: 'Invalid or unverified OTP session.' });
         }
 
         // 2. Check Admin role
@@ -80,6 +108,8 @@ module.exports = async function (fastify, opts) {
         await knex('stores')
             .where({ storeId })
             .del();
+
+        await knex('otp_verification').where({ otpId: latestOtp.otpId }).del();
 
         return reply.send({ success: true });
     });

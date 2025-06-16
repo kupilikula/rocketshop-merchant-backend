@@ -46,6 +46,17 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
+    await knex.schema.createTable("storeSubscriptions", function (table) {
+        table.uuid("subscriptionId").primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.uuid("storeId").notNullable().references("storeId").inTable("stores").onDelete("CASCADE").index(); // Add an index for faster lookups by storeId.
+        table.string("razorpayPlanId").notNullable();
+        table.string("razorpaySubscriptionId").unique().notNullable();
+        table.string("subscriptionStatus").notNullable();
+        table.timestamp("currentPeriodStart");
+        table.timestamp("currentPeriodEnd");
+        table.timestamps(true, true);
+    });
+
     await knex.schema.createTable('storePolicies', table => {
         table.uuid('storePolicyId').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE').notNullable().unique();
@@ -329,21 +340,6 @@ exports.up = async function (knex) {
         table.timestamps(true, true);
     });
 
-    console.log("Creating table: razorpay_order_mapping...");
-    await knex.schema.createTable('razorpay_order_mapping', function(table) {
-        // Use increments or UUID for primary key
-        table.increments('mappingId').primary();
-        // Razorpay Order IDs look like 'order_ABC123XYZ'
-        table.string('razorpayOrderId', 40).notNullable().index(); // Index for webhook lookups
-        table.uuid('platformOrderId').notNullable().index(); // Your internal order ID
-        table.foreign('platformOrderId') // Define Foreign Key constraint
-            .references('orderId')
-            .inTable('orders') // Assumes 'orders' table exists
-            .onDelete('CASCADE'); // If platform order deleted, remove mapping
-        table.timestamps(true, true); // created_at, updated_at
-    });
-    console.log("Created table: razorpay_order_mapping.");
-
     await knex.schema.createTable("customer_carts", (table) => {
         table.uuid("customerId").primary().references("customerId").inTable("customers").onDelete("CASCADE");
         table.jsonb("cartData").notNullable();
@@ -559,7 +555,6 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("store_bank_accounts");
     await knex.schema.dropTableIfExists("razorpay_credentials");
     await knex.schema.dropTableIfExists("razorpay_oauth_states");
-    await knex.schema.dropTableIfExists("razorpay_order_mapping");
     await knex.schema.dropTableIfExists("order_items");
     await knex.schema.dropTableIfExists("order_status_history");
     await knex.schema.dropTableIfExists("product_reviews");
