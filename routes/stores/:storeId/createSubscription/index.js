@@ -66,6 +66,26 @@ module.exports = async function (fastify, opts) {
             notify_info: notify_info,
         };
 
+        // --- NEW LOGIC TO PREVENT OVERLAP ---
+        // Before creating, check if there's a subscription that was cancelled but is still active.
+        const existingCancelledSub = await knex('storeSubscriptions')
+            .where({ storeId: storeId, subscriptionStatus: 'cancelled' })
+            .orderBy('currentPeriodEnd', 'desc') // Get the one that ends latest
+            .first();
+
+        // Check if the found subscription's end date is actually in the future.
+        if (existingCancelledSub && new Date(existingCancelledSub.currentPeriodEnd) > new Date()) {
+            fastify.log.info(
+                `Found existing cancelled sub for store ${storeId} ending on ${existingCancelledSub.currentPeriodEnd}. ` +
+                `Scheduling new subscription to start then.`
+            );
+
+            // Convert the JavaScript/ISO date from your DB to a Unix timestamp (in seconds) for Razorpay.
+            const startDate = new Date(existingCancelledSub.currentPeriodEnd);
+            subscriptionParams.start_at = Math.floor(startDate.getTime() / 1000);
+        }
+        // --- END OF NEW LOGIC ---
+
         try {
             fastify.log.info(`Creating Razorpay subscription for store: ${storeId} with plan: ${planType}`);
 
