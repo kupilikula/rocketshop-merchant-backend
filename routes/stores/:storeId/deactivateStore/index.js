@@ -2,7 +2,7 @@
 
 const knex = require("@database/knexInstance");
 // --- NEW: Make sure you import your validation helpers ---
-const { isValidEmail, isValidE164Phone } = require("../../../utils/validateIdentifier");
+const { isValidEmail, isValidE164Phone } = require("../../../../utils/validateIdentifier");
 
 module.exports = async function (fastify, opts) {
     fastify.patch('/', async function (request, reply) {
