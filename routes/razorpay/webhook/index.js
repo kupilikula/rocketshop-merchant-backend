@@ -58,7 +58,11 @@ module.exports = async function (fastify, opts) {
     // Example plugin registration config: { field: 'rawBody', encoding: 'utf8', runFirst: true }
     // Without the raw body, signature verification *will not work*.
 
-    fastify.post('/', async function (request, reply) {
+    fastify.post('/', {
+        config: {
+            rawBody: true // This enables the fastify-raw-body plugin for this route
+        },
+    }, async function (request, reply) {
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         const receivedSignature = request.headers['x-razorpay-signature'];
         // Use the raw body provided by Fastify config/plugin
