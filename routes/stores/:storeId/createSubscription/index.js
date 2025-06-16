@@ -75,6 +75,7 @@ module.exports = async function (fastify, opts) {
 
             // As per our last discussion, we return the simple subscription link.
             return reply.send({
+                subscriptionId: subscription.id,
                 subscription_url: subscription.short_url,
             });
 
