@@ -146,6 +146,9 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
         return;
     }
 
+    // Use the subscription ID as the primary link
+    const razorpaySubscriptionId = entity.id;
+    const storeId = entity.notes?.store_id;
     log.info(`Processing Razorpay Event: ${eventType}, Entity ID: ${entity.id}`);
 
     // Use a single transaction for all database operations for this event.
@@ -159,32 +162,44 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                 const storeId = subscription.notes?.store_id;
 
                 if (!storeId) {
-                    log.error({ razorpaySubscriptionId: subscription.id }, "Webhook Error: store_id missing from subscription notes. Cannot activate store.");
+                    log.error({razorpaySubscriptionId}, "Webhook Error: store_id missing from subscription notes. Cannot activate store.");
                     await trx.rollback();
                     return;
                 }
 
-                log.info({ storeId, razorpaySubscriptionId: subscription.id }, "Event: subscription.charged. Activating store and creating subscription record.");
+                log.info({
+                    storeId,
+                    razorpaySubscriptionId
+                }, "Event: subscription.charged. Activating store and creating subscription record.");
 
+                const existingSub = await trx('storeSubscriptions').where(razorpaySubscriptionId).first();
+                if (existingSub) {
+                    // If the subscription exists but is not yet active (rare case), update it.
+                    // Otherwise, do nothing.
+                    if (existingSub.subscriptionStatus !== 'active') {
+                        await trx('storeSubscriptions')
+                            .where('razorpaySubscriptionId', razorpaySubscriptionId)
+                            .update({
+                                subscriptionStatus: 'active',
+                                currentPeriodStart: db.raw('to_timestamp(?)', [entity.current_start]),
+                                currentPeriodEnd: db.raw('to_timestamp(?)', [entity.current_end]),
+                            });
+                        log.info({ razorpaySubscriptionId }, "Updated existing subscription record to active.");
+                    } else {
+                        log.info({ razorpaySubscriptionId }, "Subscription already exists and is active. Skipping (Idempotency).");
+                    }
+                } else {
                 // 1. Insert the successful subscription into your new table.
-                await trx('storeSubscriptions').insert({
-                    subscriptionId: uuidv4(), // Generate a new UUID for the primary key
-                    storeId: storeId,
-                    razorpayPlanId: subscription.plan_id,
-                    razorpaySubscriptionId: subscription.id,
-                    subscriptionStatus: subscription.status, // Should be 'active'
-                    currentPeriodStart: db.raw('to_timestamp(?)', [subscription.current_start]),
-                    currentPeriodEnd: db.raw('to_timestamp(?)', [subscription.current_end]),
-                });
-
-                // 2. Update the corresponding store to mark it as active.
-                await trx('stores')
-                    .where('storeId', storeId)
-                    .update({
-                        isActive: true,
-                        // Update your subscriptionStatus column on the stores table if you decide to keep it
-                        // subscription_status: 'active'
+                    await trx('storeSubscriptions').insert({
+                        subscriptionId: uuidv4(), // Generate a new UUID for the primary key
+                        storeId: storeId,
+                        razorpayPlanId: subscription.plan_id,
+                        razorpaySubscriptionId: subscription.id,
+                        subscriptionStatus: subscription.status, // Should be 'active'
+                        currentPeriodStart: db.raw('to_timestamp(?)', [subscription.current_start]),
+                        currentPeriodEnd: db.raw('to_timestamp(?)', [subscription.current_end]),
                     });
+                }
 
                 log.info({ storeId }, "Store successfully activated.");
                 break;
@@ -228,6 +243,11 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                     });
 
                 log.info({ storeId, razorpaySubscriptionId }, "Store has been successfully deactivated as its subscription period has ended.");
+                break;
+            }
+
+            case 'subscription.activated': {
+                log.info({ subscriptionId: entity.id }, "Event: subscription.activated received. No action taken as 'charged'/'authenticated' handles activation.");
                 break;
             }
 
