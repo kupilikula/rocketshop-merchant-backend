@@ -157,127 +157,79 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
         switch (eventType) {
             // --- Subscription Event Handling ---
             case 'subscription.authenticated': {
-                const subscription = entity;
-                const storeId = subscription.notes?.store_id;
                 if (!storeId) {
-                    log.error({razorpaySubscriptionId}, "Webhook Error: store_id missing from subscription notes.");
+                    log.error({ razorpaySubscriptionId }, "Webhook Error: store_id missing from notes.");
                     await trx.rollback();
                     return;
                 }
 
-                log.info({ storeId, subId: subscription.id }, "Event: subscription.authenticated. Creating subscription record in 'authenticated' state.");
+                log.info({ storeId, subId: razorpaySubscriptionId }, "Event: subscription.authenticated. Creating/updating record in 'authenticated' state.");
 
-                // Data for the new subscription
-                const subscriptionData = {
-                    storeId: storeId,
-                    razorpayPlanId: subscription.plan_id,
-                    razorpaySubscriptionId: subscription.id,
-                    // The key change: set status to 'authenticated', not 'active'
-                    subscriptionStatus: 'authenticated',
-                    // Use start_at for period start if current_start is null
-                    currentPeriodStart: db.raw('to_timestamp(?)', [subscription.current_start || subscription.start_at]),
-                    currentPeriodEnd: db.raw('to_timestamp(?)', [subscription.current_end]),
-                    updated_at: new Date()
-                };
-
-                // Use the robust "upsert" logic
-                await trx('storeSubscriptions')
-                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
-                    .onConflict('razorpaySubscriptionId')
-                    .merge(subscriptionData);
-                break;
-            }
-
-
-            case 'subscription.charged': {
-                const subscription = entity;
-                const storeId = subscription.notes?.store_id;
-
-                if (!storeId) {
-                    log.error({razorpaySubscriptionId}, "Webhook Error: store_id missing from subscription notes. Cannot activate store.");
-                    await trx.rollback();
-                    return;
-                }
-
-                log.info({
-                    storeId,
-                    razorpaySubscriptionId,
-                    eventType,
-                }, `Event: ${eventType}. Creating subscription record.`);
-
+                // Your existing logic for calculating future dates is perfect.
+                // We will use it here to ensure the record is created with the correct dates.
                 let periodStart = entity.current_start;
                 let periodEnd = entity.current_end;
 
-                // If current_start is null, it means the subscription starts in the future.
                 if (!periodStart && entity.start_at) {
                     const startDate = new Date(entity.start_at * 1000);
                     periodStart = entity.start_at;
                     const endDate = new Date(startDate);
-
-                    // Determine the plan's period by comparing the plan_id with your environment variables.
                     let planPeriod;
-                    if (entity.plan_id === process.env.MONTHLY_SUBSCRIPTION_PLAN_ID) {
+                    if (entity.plan_id === process.env.RAZORPAY_MONTHLY_PLAN_ID) {
                         planPeriod = 'monthly';
-                    } else if (entity.plan_id === process.env.ANNUAL_SUBSCRIPTION_PLAN_ID) {
+                    } else if (entity.plan_id === process.env.RAZORPAY_ANNUAL_PLAN_ID) {
                         planPeriod = 'yearly';
-                    } else {
-                        // If the plan_id is unknown, we cannot calculate the end date.
-                        log.error({ planId: entity.plan_id }, "Unknown plan_id received for a future-dated subscription.");
-                        await trx.rollback();
-                        return;
                     }
-
-                    // Calculate the end date. Assumes interval is 1.
-                    if (planPeriod === 'monthly') {
-                        endDate.setMonth(endDate.getMonth() + 1);
-                    } else if (planPeriod === 'yearly') {
-                        endDate.setFullYear(endDate.getFullYear() + 1);
-                    }
-
+                    if (planPeriod === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+                    else if (planPeriod === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
                     periodEnd = Math.floor(endDate.getTime() / 1000);
-                    log.info({ periodStart, periodEnd }, "Calculated first billing period for future-dated subscription.");
-                }
-
-                if (!periodStart || !periodEnd) {
-                    log.error({ entity }, "Could not determine period_start or period_end from webhook payload. Cannot process.");
-                    await trx.rollback();
-                    return;
                 }
 
                 const subscriptionData = {
                     storeId: storeId,
                     razorpayPlanId: entity.plan_id,
                     razorpaySubscriptionId: razorpaySubscriptionId,
-                    subscriptionStatus: 'active',
-                    currentPeriodStart: db.raw('to_timestamp(?)', [periodStart]),
-                    currentPeriodEnd: db.raw('to_timestamp(?)', [periodEnd]),
+                    subscriptionStatus: 'authenticated', // Set this specific status
+                    currentPeriodStart: periodStart ? db.raw('to_timestamp(?)', [periodStart]) : null,
+                    currentPeriodEnd: periodEnd ? db.raw('to_timestamp(?)', [periodEnd]) : null,
                     updated_at: new Date()
                 };
 
-                const existingSub = await trx('storeSubscriptions').where({razorpaySubscriptionId}).first();
-                if (existingSub) {
-                    // If the subscription exists but is not yet active (rare case), update it.
-                    // Otherwise, do nothing.
-                    if (existingSub.subscriptionStatus !== 'active') {
-                        await trx('storeSubscriptions')
-                            .where('razorpaySubscriptionId', razorpaySubscriptionId)
-                            .update({
-                                subscriptionStatus: 'active',
-                                currentPeriodStart: db.raw('to_timestamp(?)', [periodStart]),
-                                currentPeriodEnd: db.raw('to_timestamp(?)', [periodEnd]),
-                            });
-                        log.info({ razorpaySubscriptionId }, "Updated existing subscription record to active.");
-                    } else {
-                        log.info({ razorpaySubscriptionId }, "Subscription already exists and is active. Skipping (Idempotency).");
-                    }
-                } else {
-                // 1. Insert the successful subscription into your new table.
-                    await trx('storeSubscriptions')
-                        .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
-                        .onConflict('razorpaySubscriptionId')
-                        .merge(subscriptionData);
+                // Use the robust "upsert" logic
+                await trx('storeSubscriptions')
+                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
+                    .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+                break;
+            }
+
+            case 'subscription.charged': {
+                if (!storeId) {
+                    log.error({ razorpaySubscriptionId }, "Webhook Error: store_id missing from notes.");
+                    await trx.rollback();
+                    return;
                 }
 
+                log.info({ storeId, subId: razorpaySubscriptionId }, "Event: subscription.charged. Updating subscription to 'active'.");
+
+                const subscriptionData = {
+                    storeId: storeId,
+                    razorpayPlanId: entity.plan_id,
+                    razorpaySubscriptionId: razorpaySubscriptionId,
+                    subscriptionStatus: 'active', // The key action is to make it active
+                    currentPeriodStart: db.raw('to_timestamp(?)', [entity.current_start]),
+                    currentPeriodEnd: db.raw('to_timestamp(?)', [entity.current_end]),
+                    updated_at: new Date()
+                };
+
+                // "Upsert" the record. This handles both immediate-start new subs (INSERT)
+                // and the first charge of future-dated subs (UPDATE).
+                await trx('storeSubscriptions')
+                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
+                    .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+
+                // Now, ensure the store is active.
+                await trx('stores').where('storeId', storeId).update({ isActive: true });
+                log.info({ storeId }, "Store activation confirmed on charge.");
                 break;
             }
 

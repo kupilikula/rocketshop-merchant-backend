@@ -5,11 +5,11 @@ const Razorpay = require("razorpay");
 
 const planMap = {
     monthly: {
-        id: process.env.RAZORPAY_MONTHLY_PLAN_ID,
+        id: process.env.MONTHLY_SUBSCRIPTION_PLAN_ID,
         name: 'Monthly Plan',
     },
     annual: {
-        id: process.env.RAZORPAY_ANNUAL_PLAN_ID,
+        id: process.env.ANNUAL_SUBSCRIPTION_PLAN_ID,
         name: 'Annual Plan',
     }
 };
@@ -19,11 +19,6 @@ const planIdToNameMap = Object.values(planMap).reduce((acc, plan) => {
     acc[plan.id] = plan.name;
     return acc;
 }, {});
-
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
