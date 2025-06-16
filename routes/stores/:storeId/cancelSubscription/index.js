@@ -15,50 +15,59 @@ const razorpay = new Razorpay({
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
+
+        const trx = await knex.transaction();
+
         try {
             const { storeId } = request.params;
+            const {merchantId} = request.user;
+            const {subscriptionId} = request.body;
 
             if (!storeId) {
                 return reply.status(404).send({ error: "storeId required." });
             }
 
-            // 1. Find the active subscription for the store in your database
-            const activeSubscription = await knex('storeSubscriptions')
+            const subscriptionToCancel = await trx('storeSubscriptions')
+                .join('stores', 'storeSubscriptions.storeId', 'stores.storeId')
+                .join('merchantStores', 'stores.storeId', 'merchantStores.storeId')
                 .where({
-                    storeId: storeId,
-                    subscriptionStatus: 'active'
+                    'storeSubscriptions.subscriptionId': subscriptionId, // Match the specific sub
+                    'merchantStores.merchantId': merchantId,              // Ensure ownership
+                    'storeSubscriptions.subscriptionStatus': 'active',    // Ensure it's in a cancellable state
+                    'merchantStores.merchantRole': 'Admin'                // Ensure user is an Admin
                 })
+                .select('storeSubscriptions.*') // Select all columns from the subscription table
                 .first();
 
-            if (!activeSubscription) {
-                return reply.status(400).send({ error: 'No active subscription found to cancel.' });
+            // --- UPDATED: New, more robust error check ---
+            if (!subscriptionToCancel) {
+                // This error is returned if the sub doesn't exist, doesn't belong to the user,
+                // or is not in an 'active' state. We use a generic message for security.
+                await trx.rollback();
+                return reply.status(404).send({ error: 'Active subscription not found or you do not have permission to modify it.' });
             }
 
-            // 2. Call Razorpay to cancel the subscription
-            fastify.log.info(`Cancelling Razorpay subscription: ${activeSubscription.razorpaySubscriptionId}`);
-
-            // By setting 'cancel_at_cycle_end' to true, the subscription remains active
-            // until the current billing period ends, which is the best user experience.
-            const cancelledRazorpaySub = await razorpay.subscriptions.cancel(
-                activeSubscription.razorpaySubscriptionId,
+            // 2. Call Razorpay to schedule the cancellation
+            fastify.log.info(`Cancelling Razorpay subscription: ${subscriptionToCancel.razorpaySubscriptionId}`);
+            await razorpay.subscriptions.cancel(
+                subscriptionToCancel.razorpaySubscriptionId,
                 { cancel_at_cycle_end: true }
             );
-            console.log('cancelled sub:', cancelledRazorpaySub);
-            // 3. Update your database to reflect the cancellation
-            // The status will become 'cancelled'. The user's store remains `isActive` for now.
-            await knex('storeSubscriptions')
-                .where('subscriptionId', activeSubscription.subscriptionId)
+
+            // 3. Update YOUR database status to 'cancelled'
+            await trx('storeSubscriptions')
+                .where('subscriptionId', subscriptionToCancel.subscriptionId)
                 .update({
                     subscriptionStatus: 'cancelled',
                     updated_at: new Date()
                 });
 
-            // Note: A `subscription.ended` webhook will be sent by Razorpay when the cycle
-            // actually ends. You should listen for that webhook to finally set `stores.isActive = false`.
+            // Commit all changes if successful
+            await trx.commit();
 
-            fastify.log.info(`Subscription ${activeSubscription.razorpaySubscriptionId} successfully cancelled for end of cycle.`);
+            fastify.log.info(`Subscription ${subscriptionToCancel.razorpaySubscriptionId} successfully marked as 'cancelled' for end of cycle.`);
 
-            return reply.send({ message: 'Subscription successfully cancelled. It will remain active until the end of the current billing period.' });
+            return reply.send({ success: true, message: 'Subscription successfully scheduled for cancellation.' });
 
         } catch (error) {
             fastify.log.error(`Error cancelling subscription:`, error);
