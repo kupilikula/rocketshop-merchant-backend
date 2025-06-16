@@ -172,7 +172,7 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                     razorpaySubscriptionId
                 }, "Event: subscription.charged. Activating store and creating subscription record.");
 
-                const existingSub = await trx('storeSubscriptions').where(razorpaySubscriptionId).first();
+                const existingSub = await trx('storeSubscriptions').where({razorpaySubscriptionId}).first();
                 if (existingSub) {
                     // If the subscription exists but is not yet active (rare case), update it.
                     // Otherwise, do nothing.
