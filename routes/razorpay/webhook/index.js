@@ -153,6 +153,7 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
     try {
         switch (eventType) {
             // --- Subscription Event Handling ---
+            case 'subscription.authenticated':
             case 'subscription.charged': {
                 const subscription = entity;
                 const storeId = subscription.notes?.store_id;
