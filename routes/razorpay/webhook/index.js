@@ -156,7 +156,39 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
     try {
         switch (eventType) {
             // --- Subscription Event Handling ---
-            case 'subscription.authenticated':
+            case 'subscription.authenticated': {
+                const subscription = entity;
+                const storeId = subscription.notes?.store_id;
+                if (!storeId) {
+                    log.error({razorpaySubscriptionId}, "Webhook Error: store_id missing from subscription notes.");
+                    await trx.rollback();
+                    return;
+                }
+
+                log.info({ storeId, subId: subscription.id }, "Event: subscription.authenticated. Creating subscription record in 'authenticated' state.");
+
+                // Data for the new subscription
+                const subscriptionData = {
+                    storeId: storeId,
+                    razorpayPlanId: subscription.plan_id,
+                    razorpaySubscriptionId: subscription.id,
+                    // The key change: set status to 'authenticated', not 'active'
+                    subscriptionStatus: 'authenticated',
+                    // Use start_at for period start if current_start is null
+                    currentPeriodStart: db.raw('to_timestamp(?)', [subscription.current_start || subscription.start_at]),
+                    currentPeriodEnd: db.raw('to_timestamp(?)', [subscription.current_end]),
+                    updated_at: new Date()
+                };
+
+                // Use the robust "upsert" logic
+                await trx('storeSubscriptions')
+                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
+                    .onConflict('razorpaySubscriptionId')
+                    .merge(subscriptionData);
+                break;
+            }
+
+
             case 'subscription.charged': {
                 const subscription = entity;
                 const storeId = subscription.notes?.store_id;

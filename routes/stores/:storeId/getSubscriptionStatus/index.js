@@ -28,39 +28,32 @@ const razorpay = new Razorpay({
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
         try {
-            
             const { storeId } = request.params;
-
             if (!storeId) {
-                return reply.status(404).send({ error: "No store associated with this user." });
+                return reply.status(404).send({ error: "storeId required" });
             }
 
-            // Find the most recent subscription for this store to determine its status
-            const subscription = await knex('storeSubscriptions')
-                .where('storeId', storeId)
-                .orderBy('created_at', 'desc') // Get the latest one
-                .first();
+            // --- UPDATED QUERY ---
+            // Fetch ALL subscriptions for this store that are not yet in a final 'ended' state.
+            const subscriptionsFromDb = await knex('storeSubscriptions')
+                .where({ storeId })
+                .whereIn('subscriptionStatus', ['active', 'cancelled', 'authenticated'])
+                .orderBy('created_at', 'asc'); // Order chronologically
 
-            // Also get the store's own active status
-            const store = await knex('stores').where('storeId', storeId).first('isActive');
+            // Map database results to a clean payload, adding the planName
+            const subscriptionsPayload = subscriptionsFromDb.map(sub => ({
+                subscriptionId: sub.subscriptionId,
+                planName: planIdToNameMap[sub.razorpayPlanId],
+                subscriptionStatus: sub.subscriptionStatus,
+                // Use start_at for authenticated subs, and renewsOn for active/cancelled
+                periodStart: sub.currentPeriodStart,
+                periodEnd: sub.currentPeriodEnd,
+            }));
 
-            if (!subscription) {
-                // No subscription record found at all
-                return reply.send({
-                    planName: null,
-                    subscriptionStatus: 'not_found',
-                    renewsOn: null,
-                });
-            }
-
-            // Found a subscription, so format the response for the frontend
-            const responsePayload = {
-                planName: planIdToNameMap[subscription.razorpayPlanId],
-                subscriptionStatus: subscription.subscriptionStatus,
-                renewsOn: subscription.currentPeriodEnd, // This is a timestamp
-            };
-
-            return reply.send(responsePayload);
+            // Return the store's overall status and the array of subscriptions
+            return reply.send({
+                subscriptions: subscriptionsPayload
+            });
 
         } catch (error) {
             fastify.log.error(`Error fetching subscription status:`, error);
