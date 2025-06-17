@@ -33,9 +33,9 @@ module.exports = async function (fastify, opts) {
                 .where({
                     'storeSubscriptions.subscriptionId': subscriptionId, // Match the specific sub
                     'merchantStores.merchantId': merchantId,              // Ensure ownership
+                    'storeSubscriptions.subscriptionStatus': 'active',    // Ensure it's in a cancellable state
                     'merchantStores.merchantRole': 'Admin'                // Ensure user is an Admin
                 })
-                .whereIn('storeSubscriptions.subscriptionStatus', ['active', 'authenticated'])
                 .select('storeSubscriptions.*') // Select all columns from the subscription table
                 .first();
 
@@ -46,10 +46,9 @@ module.exports = async function (fastify, opts) {
 
             // 2. Call Razorpay to schedule the cancellation
             fastify.log.info(`Cancelling Razorpay subscription: ${subscriptionToCancel.razorpaySubscriptionId}`);
-            let cancel_at_cycle_end = subscriptionToCancel.subscriptionStatus === 'active' ? true : false;
             await razorpay.subscriptions.cancel(
                 subscriptionToCancel.razorpaySubscriptionId,
-                { cancel_at_cycle_end: cancel_at_cycle_end }
+                { cancel_at_cycle_end: true }
             );
 
             // 3. Update YOUR database status to 'cancelled'
