@@ -12,7 +12,7 @@ module.exports = async function (fastify, opts) {
         if (!token) return reply.status(400).send({ error: 'Token is required.' });
 
         const tokenRecord = await knex('autoLoginTokens').where({ token }).first();
-
+        console.log('tokenRecord:',tokenRecord);
         // Security checks
         if (!tokenRecord || tokenRecord.isUsed || new Date(tokenRecord.expiresAt) < new Date()) {
             return reply.status(401).send({ error: 'Invalid or expired login link.' });
