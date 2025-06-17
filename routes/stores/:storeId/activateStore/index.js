@@ -3,6 +3,7 @@
 const knex = require("@database/knexInstance");
 // --- NEW: Make sure you import your validation helpers ---
 const { isValidEmail, isValidE164Phone } = require("../../../../utils/validateIdentifier");
+const {checkStoreActivationReadiness} = require("../../../../utils/checkStoreActivationReadiness");
 
 module.exports = async function (fastify, opts) {
     fastify.patch('/', async function (request, reply) {
@@ -24,7 +25,6 @@ module.exports = async function (fastify, opts) {
         if (request.user.phone !== identifier && request.user.email !== identifier) {
             return reply.status(403).send({ error: 'Identifier does not match the authenticated user.' });
         }
-
 
         // --- 2. UPDATED: Robust OTP Verification (from your login endpoint) ---
         let otpQuery = knex('otp_verification')
@@ -61,18 +61,10 @@ module.exports = async function (fastify, opts) {
         if (!store) { return reply.status(404).send({ error: 'Store not found.' }); }
         if (store.isActive) { return reply.send({ success: true, message: 'Store is already active.' }); }
 
+        const readinessStatus = await checkStoreActivationReadiness({ store });
 
-        // --- 4. Subscription Validation Logic (Unchanged) ---
-        fastify.log.info(`Checking subscription status for storeId: ${storeId} before activation.`);
-        const subscription = await knex('storeSubscriptions')
-            .where({ storeId })
-            .whereIn('subscriptionStatus', ['active', 'cancelled'])
-            .first();
-
-        if (subscription) {
+        if (readinessStatus.isReady) {
             // --- Success Path ---
-            fastify.log.info(`Valid subscription found. Activating store ${storeId}.`);
-
             await knex('stores')
                 .where({ storeId })
                 .update({ isActive: true, updated_at: knex.fn.now() });
@@ -80,19 +72,36 @@ module.exports = async function (fastify, opts) {
             // --- NEW: Clean up the used OTP for security ---
             await knex('otp_verification').where({ otpId: latestOtp.otpId }).del();
 
+            // Clean up the used OTP
+            // const latestOtp = ... (You'll need to have fetched this above)
+            // await knex('otp_verification').where({ otpId: latestOtp.otpId }).del();
+
             return reply.send({ success: true, message: 'Store successfully activated.' });
 
         } else {
-            // --- Failure Path (Payment Required) ---
-            fastify.log.warn(`Activation failed for storeId: ${storeId}. No active subscription.`);
-            const subdomain = process.env.NODE_ENV === 'production' ? 'subscription' : 'subscription.qa';
-            const webBillingUrl = `https://${subdomain}.rocketshop.in/billing?storeId=${storeId}`;
-            return reply.status(402).send({
+            // --- Failure Path ---
+            // The readiness check failed. Return the specific reason.
+            fastify.log.warn(`Activation failed for ${storeId}: ${readinessStatus.message}`);
+
+            // If the failure was due to subscription, send the 402 error and link
+            if (!readinessStatus.checks.hasActiveSubscription && !readinessStatus.checks.isPlatformOwned) {
+                const subdomain = process.env.NODE_ENV === 'production' ? 'subscription' : 'subscription.qa';
+                const webBillingUrl = `https://${subdomain}.rocketshop.in/billing?storeId=${storeId}`;
+                return reply.status(402).send({
+                    success: false,
+                    error: 'Payment Required',
+                    message: readinessStatus.message,
+                    manageSubscriptionUrl: webBillingUrl
+                });
+            }
+
+            // For any other readiness failure (e.g., no active products)
+            return reply.status(400).send({
                 success: false,
-                error: 'Payment Required',
-                message: 'An active subscription is required to activate the store. Please complete the payment.',
-                manageSubscriptionUrl: webBillingUrl
+                error: 'INCOMPLETE_SETUP',
+                message: readinessStatus.message
             });
         }
+
     });
 };
