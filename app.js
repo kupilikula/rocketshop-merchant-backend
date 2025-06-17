@@ -67,6 +67,7 @@ module.exports = async function (fastify, opts) {
         '/auth/register',
       '/auth/refreshToken',
       '/auth/logout',
+        '/auth/autoLogin/verify',
         '/razorpay/webhook',
         '/razorpay/callback',
     ];
