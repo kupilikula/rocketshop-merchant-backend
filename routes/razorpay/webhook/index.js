@@ -196,11 +196,11 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                         periodStart = entity.start_at;
                         const endDate = new Date(startDate);
                         let planPeriod;
-                        if (entity.plan_id === process.env.RAZORPAY_MONTHLY_PLAN_ID) planPeriod = 'monthly';
-                        else if (entity.plan_id === process.env.RAZORPAY_ANNUAL_PLAN_ID) planPeriod = 'yearly';
+                        if (entity.plan_id === process.env.MONTHLY_SUBSCRIPTION_PLAN_ID) planPeriod = 'monthly';
+                        else if (entity.plan_id === process.env.ANNUAL_SUBSCRIPTION_PLAN_ID) planPeriod = 'annual';
 
                         if (planPeriod === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
-                        else if (planPeriod === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
+                        else if (planPeriod === 'annual') endDate.setFullYear(endDate.getFullYear() + 1);
 
                         periodEnd = Math.floor(endDate.getTime() / 1000);
                     }
