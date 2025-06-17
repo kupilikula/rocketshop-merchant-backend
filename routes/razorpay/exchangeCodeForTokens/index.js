@@ -41,7 +41,7 @@ const updateSetupStatus = async (logger, affiliateAccountId, status) => {
 /**
  * Contains the entire post-OAuth setup logic (Steps 7-10).
  */
-async function performRouteSetup(logger, affiliateAccountId, storeId) {
+async function performRouteSetup(logger, razorpayAffiliateAccountId, storeId) {
     let newRazorpayRouteAccountId = null;
     let productConfigId = null;
     let failedStep = 0;
@@ -55,7 +55,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         // --- Step 7: Find or Create Razorpay Route Account ---
         failedStep = 7;
         const existingCredential = await knex('razorpay_credentials')
-            .where({ razorpayAffiliateAccountId: affiliateAccountId })
+            .where({ razorpayAffiliateAccountId: razorpayAffiliateAccountId })
             .first('razorpayLinkedAccountId', 'razorpayProductConfigId', 'razorpayStakeholderId');
 
         if (existingCredential && existingCredential.razorpayLinkedAccountId) {
@@ -63,7 +63,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
             productConfigId = existingCredential.razorpayProductConfigId;
             logger.info({ newRazorpayRouteAccountId }, "Found existing Route Account. Reusing it.");
         } else {
-            logger.info({ affiliateAccountId }, "No existing Route Account found. Creating new one.");
+            logger.info({ affiliateAccountId: razorpayAffiliateAccountId }, "No existing Route Account found. Creating new one.");
             const storeProfile = await knex('stores').where({ storeId }).first();
             if (!storeProfile) throw new Error(`Store profile not found`);
             const routeAccountPayload = {
@@ -75,7 +75,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
                     addresses: {
                         registered: {
                             street1: storeProfile.registeredAddress.street1,
-                            street2: storeProfile.registeredAddress.street2 || '',
+                            street2: storeProfile.registeredAddress.street2,
                             city: storeProfile.registeredAddress.city,
                             state: storeProfile.registeredAddress.state,
                             country: "IN",
@@ -88,7 +88,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
             newRazorpayRouteAccountId = routeAccountResponse.data.id;
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayLinkedAccountId: newRazorpayRouteAccountId });
         }
-        await updateSetupStatus(logger, affiliateAccountId, 'route_account_created');
+        await updateSetupStatus(logger, razorpayAffiliateAccountId, 'route_account_created');
 
         logger.info({ newRazorpayRouteAccountId }, "Fetching live status of Route Account from Razorpay...");
         const accountDetailsResponse = await axios.get(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}`, { headers });
@@ -97,7 +97,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
 
         if (liveAccountStatus === 'created') {
             logger.info({ newRazorpayRouteAccountId }, "Account is already activated on Razorpay. Marking local setup as complete.");
-            await updateSetupStatus(logger, affiliateAccountId, 'complete');
+            await updateSetupStatus(logger, razorpayAffiliateAccountId, 'complete');
             return; // End the setup process here.
         }
 
@@ -131,8 +131,8 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         }
 
         // Store the definitive stakeholder ID in our database
-        await knex('razorpay_credentials').where({ razorpayAffiliateAccountId: affiliateAccountId }).update({ razorpayStakeholderId: stakeholderId });
-        await updateSetupStatus(logger, affiliateAccountId, 'stakeholder_created');
+        await knex('razorpay_credentials').where({ razorpayAffiliateAccountId: razorpayAffiliateAccountId }).update({ razorpayStakeholderId: stakeholderId });
+        await updateSetupStatus(logger, razorpayAffiliateAccountId, 'stakeholder_created');
         logger.info({ stakeholderId }, "Stakeholder setup step complete.");
 
 
@@ -144,7 +144,7 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
             productConfigId = productConfigResponse.data.id;
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayProductConfigId: productConfigId });
         }
-        await updateSetupStatus(logger, affiliateAccountId, 'product_requested');
+        await updateSetupStatus(logger, razorpayAffiliateAccountId, 'product_requested');
         logger.info({ productConfigId }, "Product configuration step complete.");
 
         // --- Step 10: Update Product Configuration with Bank Details ---
@@ -160,14 +160,14 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
         if (!productUpdatePayload.settlements.account_number) throw new Error(`Decryption failed for bank details`);
 
         await axios.patch(`https://api.razorpay.com/v2/accounts/${newRazorpayRouteAccountId}/products/${productConfigId}`, productUpdatePayload, { headers });
-        await updateSetupStatus(logger, affiliateAccountId, 'complete');
+        await updateSetupStatus(logger, razorpayAffiliateAccountId, 'complete');
 
-        logger.info({ affiliateAccountId }, "Full Razorpay Route setup completed successfully.");
+        logger.info({ affiliateAccountId: razorpayAffiliateAccountId }, "Full Razorpay Route setup completed successfully.");
 
     } catch (setupError) {
         const statusUpdateMap = { 7: 'route_account_failed', 8: 'stakeholder_creation_failed', 9: 'product_request_failed', 10: 'product_update_failed' };
-        if (affiliateAccountId && failedStep > 0) {
-            await updateSetupStatus(logger, affiliateAccountId, statusUpdateMap[failedStep]);
+        if (razorpayAffiliateAccountId && failedStep > 0) {
+            await updateSetupStatus(logger, razorpayAffiliateAccountId, statusUpdateMap[failedStep]);
         }
         logger.error({ err: setupError.response?.data || setupError.message, failedStep }, "A failure occurred during post-OAuth setup.");
     }
