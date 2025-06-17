@@ -68,6 +68,23 @@ module.exports = async function (fastify, opts) {
             return reply.send({ success: true, message: 'Subscription successfully scheduled for cancellation.' });
 
         } catch (error) {
+            await trx.rollback();
+
+            // --- NEW: Detailed Error Logging ---
+            console.log("--- RAW ERROR OBJECT FROM RAZORPAY ---");
+            console.log(error); // This will dump the raw object to your console/logs.
+
+            fastify.log.error({
+                // Log specific properties that are likely to exist and be serializable.
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                // These are common properties in Razorpay's error object
+                statusCode: error.statusCode,
+                razorpayErrorCode: error.error?.code,
+                razorpayErrorDescription: error.error?.description,
+            }, "Detailed error while cancelling subscription:");
+            // --- END OF NEW DETAILED LOGGING ---
             fastify.log.error(`Error cancelling subscription:`, error);
             return reply.status(500).send({ error: 'Could not cancel subscription. Please try again later.' });
         }
