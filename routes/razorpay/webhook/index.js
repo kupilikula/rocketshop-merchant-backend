@@ -240,9 +240,6 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                     log.info({ razorpaySubscriptionId, currentStatus: existingSub.subscriptionStatus }, "Incoming 'active' event would be a status regression. Ignoring.");
                 }
 
-                // Always ensure the store is active on these events
-                await trx('stores').where('storeId', storeId).update({ isActive: true });
-                log.info({ storeId }, "Store activation confirmed.");
                 break;
             }
 
