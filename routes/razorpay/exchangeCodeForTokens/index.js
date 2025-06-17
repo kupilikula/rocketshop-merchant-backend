@@ -66,7 +66,11 @@ async function performRouteSetup(logger, affiliateAccountId, storeId) {
             logger.info({ affiliateAccountId }, "No existing Route Account found. Creating new one.");
             const storeProfile = await knex('stores').where({ storeId }).first();
             if (!storeProfile) throw new Error(`Store profile not found`);
-            const routeAccountPayload = { /* ... construct payload ... */ };
+            const routeAccountPayload = {
+                email: storeProfile.storeEmail, phone: storeProfile.storePhone, legal_business_name: storeProfile.legalBusinessName,
+                customer_facing_business_name: storeProfile.storeName, type: "route", business_type: storeProfile.businessType,
+                profile: { category: storeProfile.category, subcategory: storeProfile.subcategory, addresses: { registered: { street1: storeProfile.registeredAddress.street1, street2: storeProfile.registeredAddress.street2, city: storeProfile.registeredAddress.city, state: storeProfile.registeredAddress.state, country: "IN", postal_code: storeProfile.registeredAddress.postalCode }}}
+            };
             const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });
             newRazorpayRouteAccountId = routeAccountResponse.data.id;
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayLinkedAccountId: newRazorpayRouteAccountId });
