@@ -182,8 +182,8 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                 // 2. Find the existing record to check its current status
                 const existingSub = await trx('storeSubscriptions').where({ razorpaySubscriptionId }).first();
 
-                const currentStatusValue = STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
-                const newStatusValue = STATUS_PROGRESSION[newStatus];
+                const currentStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
+                const newStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[newStatus];
 
                 // 3. THE CORE FIX: Only proceed if the new state is a forward progression
                 if (!existingSub || newStatusValue > currentStatusValue) {
