@@ -31,11 +31,6 @@ module.exports = async function (fastify, opts) {
         } else if (type === 'phone' && !isValidE164Phone(identifier)) {
             return reply.status(400).send({ error: 'Invalid phone number format. Expected E.164.' });
         }
-        // Security check
-        if (request.user.phone !== identifier && request.user.email !== identifier) {
-            return reply.status(403).send({ error: 'Identifier does not match the authenticated user.' });
-        }
-
 
         // --- 2. UPDATED: Robust OTP Verification ---
         let otpQuery = knex('otp_verification')
