@@ -46,9 +46,10 @@ module.exports = async function (fastify, opts) {
 
             // 2. Call Razorpay to schedule the cancellation
             fastify.log.info(`Cancelling Razorpay subscription: ${subscriptionToCancel.razorpaySubscriptionId}`);
+            let cancel_at_cycle_end = subscriptionToCancel.subscriptionStatus === 'active' ? true : false;
             await razorpay.subscriptions.cancel(
                 subscriptionToCancel.razorpaySubscriptionId,
-                { cancel_at_cycle_end: true }
+                { cancel_at_cycle_end: cancel_at_cycle_end }
             );
 
             // 3. Update YOUR database status to 'cancelled'
