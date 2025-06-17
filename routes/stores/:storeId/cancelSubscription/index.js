@@ -33,18 +33,15 @@ module.exports = async function (fastify, opts) {
                 .where({
                     'storeSubscriptions.subscriptionId': subscriptionId, // Match the specific sub
                     'merchantStores.merchantId': merchantId,              // Ensure ownership
-                    'storeSubscriptions.subscriptionStatus': 'active',    // Ensure it's in a cancellable state
                     'merchantStores.merchantRole': 'Admin'                // Ensure user is an Admin
                 })
+                .whereIn('storeSubscriptions.subscriptionStatus', ['active', 'authenticated'])
                 .select('storeSubscriptions.*') // Select all columns from the subscription table
                 .first();
 
-            // --- UPDATED: New, more robust error check ---
             if (!subscriptionToCancel) {
-                // This error is returned if the sub doesn't exist, doesn't belong to the user,
-                // or is not in an 'active' state. We use a generic message for security.
                 await trx.rollback();
-                return reply.status(404).send({ error: 'Active subscription not found or you do not have permission to modify it.' });
+                return reply.status(404).send({ error: 'Cancellable subscription not found or you do not have permission to modify it.' });
             }
 
             // 2. Call Razorpay to schedule the cancellation
