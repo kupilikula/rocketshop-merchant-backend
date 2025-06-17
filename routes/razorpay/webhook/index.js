@@ -33,7 +33,6 @@ const TERMINAL_OR_POST_PENDING_STATUSES = [
     ...CANCELED_OR_FAILED_STATUSES
 ];
 
-
 // --- Helper function for timing-safe comparison (optional but recommended) ---
 const safeCompare = (a, b) => {
     try {
@@ -49,6 +48,13 @@ const safeCompare = (a, b) => {
         console.error("Error during safe comparison:", error);
         return false;
     }
+};
+
+const SUBSCRIPTION_STATUS_PROGRESSION = {
+    'authenticated': 1,
+    'active': 2,
+    'cancelled': 3, // A user can cancel an active or authenticated sub
+    'ended': 4,
 };
 
 module.exports = async function (fastify, opts) {
@@ -202,34 +208,41 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                 break;
             }
 
-            case 'subscription.charged': {
+            case 'subscription.charged':
+            case 'subscription.activated': {
                 if (!storeId) {
                     log.error({ razorpaySubscriptionId }, "Webhook Error: store_id missing from notes.");
                     await trx.rollback();
                     return;
                 }
 
-                log.info({ storeId, subId: razorpaySubscriptionId }, "Event: subscription.charged. Updating subscription to 'active'.");
+                log.info({ storeId, subId: razorpaySubscriptionId, eventType }, `Event: ${eventType}. Updating subscription to 'active'.`);
 
                 const subscriptionData = {
-                    storeId: storeId,
-                    razorpayPlanId: entity.plan_id,
-                    razorpaySubscriptionId: razorpaySubscriptionId,
-                    subscriptionStatus: 'active', // The key action is to make it active
+                    subscriptionStatus: 'active',
                     currentPeriodStart: db.raw('to_timestamp(?)', [entity.current_start]),
                     currentPeriodEnd: db.raw('to_timestamp(?)', [entity.current_end]),
                     updated_at: new Date()
                 };
 
-                // "Upsert" the record. This handles both immediate-start new subs (INSERT)
-                // and the first charge of future-dated subs (UPDATE).
-                await trx('storeSubscriptions')
-                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
-                    .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+                // Find the existing record to check its current status
+                const existingSub = await trx('storeSubscriptions').where({ razorpaySubscriptionId }).first();
 
-                // Now, ensure the store is active.
+                // --- THE FIX: Only update if the new state is a forward progression ---
+                const currentStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
+                const newStatusValue = SUBSCRIPTION_STATUS_PROGRESSION['active'];
+
+                if (!existingSub || newStatusValue > currentStatusValue) {
+                    await trx('storeSubscriptions')
+                        .insert({ ...subscriptionData, storeId, razorpayPlanId: entity.plan_id, razorpaySubscriptionId, subscriptionId: uuidv4(), created_at: new Date() })
+                        .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+                } else {
+                    log.info({ razorpaySubscriptionId, currentStatus: existingSub.subscriptionStatus }, "Incoming 'active' event would be a status regression. Ignoring.");
+                }
+
+                // Always ensure the store is active on these events
                 await trx('stores').where('storeId', storeId).update({ isActive: true });
-                log.info({ storeId }, "Store activation confirmed on charge.");
+                log.info({ storeId }, "Store activation confirmed.");
                 break;
             }
 
@@ -271,11 +284,6 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
                     });
 
                 log.info({ storeId, razorpaySubscriptionId }, "Store has been successfully deactivated as its subscription period has ended.");
-                break;
-            }
-
-            case 'subscription.activated': {
-                log.info({ subscriptionId: entity.id }, "Event: subscription.activated received. No action taken as 'charged'/'authenticated' handles activation.");
                 break;
             }
 
