@@ -162,82 +162,67 @@ async function processWebhookEvent(payload, log, db) { // knex instance passed a
     try {
         switch (eventType) {
             // --- Subscription Event Handling ---
-            case 'subscription.authenticated': {
-                if (!storeId) {
-                    log.error({ razorpaySubscriptionId }, "Webhook Error: store_id missing from notes.");
-                    await trx.rollback();
-                    return;
-                }
-
-                log.info({ storeId, subId: razorpaySubscriptionId }, "Event: subscription.authenticated. Creating/updating record in 'authenticated' state.");
-
-                // Your existing logic for calculating future dates is perfect.
-                // We will use it here to ensure the record is created with the correct dates.
-                let periodStart = entity.current_start;
-                let periodEnd = entity.current_end;
-
-                if (!periodStart && entity.start_at) {
-                    const startDate = new Date(entity.start_at * 1000);
-                    periodStart = entity.start_at;
-                    const endDate = new Date(startDate);
-                    let planPeriod;
-                    if (entity.plan_id === process.env.RAZORPAY_MONTHLY_PLAN_ID) {
-                        planPeriod = 'monthly';
-                    } else if (entity.plan_id === process.env.RAZORPAY_ANNUAL_PLAN_ID) {
-                        planPeriod = 'yearly';
-                    }
-                    if (planPeriod === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
-                    else if (planPeriod === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
-                    periodEnd = Math.floor(endDate.getTime() / 1000);
-                }
-
-                const subscriptionData = {
-                    storeId: storeId,
-                    razorpayPlanId: entity.plan_id,
-                    razorpaySubscriptionId: razorpaySubscriptionId,
-                    subscriptionStatus: 'authenticated', // Set this specific status
-                    currentPeriodStart: periodStart ? db.raw('to_timestamp(?)', [periodStart]) : null,
-                    currentPeriodEnd: periodEnd ? db.raw('to_timestamp(?)', [periodEnd]) : null,
-                    updated_at: new Date()
-                };
-
-                // Use the robust "upsert" logic
-                await trx('storeSubscriptions')
-                    .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
-                    .onConflict('razorpaySubscriptionId').merge(subscriptionData);
-                break;
-            }
-
+            case 'subscription.authenticated':
             case 'subscription.charged':
             case 'subscription.activated': {
                 if (!storeId) {
-                    log.error({ razorpaySubscriptionId }, "Webhook Error: store_id missing from notes.");
+                    log.error({ razorpaySubscriptionId, eventType }, "Webhook Error: store_id missing from notes.");
                     await trx.rollback();
                     return;
                 }
 
-                log.info({ storeId, subId: razorpaySubscriptionId, eventType }, `Event: ${eventType}. Updating subscription to 'active'.`);
+                // 1. Determine the intended new status based on the event
+                let newStatus = 'authenticated';
+                if (eventType === 'subscription.charged' || eventType === 'subscription.activated') {
+                    newStatus = 'active';
+                }
 
-                const subscriptionData = {
-                    subscriptionStatus: 'active',
-                    currentPeriodStart: db.raw('to_timestamp(?)', [entity.current_start]),
-                    currentPeriodEnd: db.raw('to_timestamp(?)', [entity.current_end]),
-                    updated_at: new Date()
-                };
+                log.info({ storeId, subId: razorpaySubscriptionId, eventType, newStatus }, `Attempting to set status to '${newStatus}'.`);
 
-                // Find the existing record to check its current status
+                // 2. Find the existing record to check its current status
                 const existingSub = await trx('storeSubscriptions').where({ razorpaySubscriptionId }).first();
 
-                // --- THE FIX: Only update if the new state is a forward progression ---
-                const currentStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
-                const newStatusValue = SUBSCRIPTION_STATUS_PROGRESSION['active'];
+                const currentStatusValue = STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
+                const newStatusValue = STATUS_PROGRESSION[newStatus];
 
+                // 3. THE CORE FIX: Only proceed if the new state is a forward progression
                 if (!existingSub || newStatusValue > currentStatusValue) {
+                    let periodStart = entity.current_start;
+                    let periodEnd = entity.current_end;
+
+                    // Calculate period for future-dated 'authenticated' subs
+                    if (newStatus === 'authenticated' && !periodStart && entity.start_at) {
+                        const startDate = new Date(entity.start_at * 1000);
+                        periodStart = entity.start_at;
+                        const endDate = new Date(startDate);
+                        let planPeriod;
+                        if (entity.plan_id === process.env.RAZORPAY_MONTHLY_PLAN_ID) planPeriod = 'monthly';
+                        else if (entity.plan_id === process.env.RAZORPAY_ANNUAL_PLAN_ID) planPeriod = 'yearly';
+
+                        if (planPeriod === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+                        else if (planPeriod === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
+
+                        periodEnd = Math.floor(endDate.getTime() / 1000);
+                    }
+
+                    const subscriptionData = {
+                        storeId,
+                        razorpayPlanId: entity.plan_id,
+                        razorpaySubscriptionId,
+                        subscriptionStatus: newStatus,
+                        currentPeriodStart: periodStart ? db.raw('to_timestamp(?)', [periodStart]) : null,
+                        currentPeriodEnd: periodEnd ? db.raw('to_timestamp(?)', [periodEnd]) : null,
+                        updated_at: new Date()
+                    };
+
                     await trx('storeSubscriptions')
-                        .insert({ ...subscriptionData, storeId, razorpayPlanId: entity.plan_id, razorpaySubscriptionId, subscriptionId: uuidv4(), created_at: new Date() })
+                        .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
                         .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+
+                    log.info({ razorpaySubscriptionId, newStatus }, "Subscription record successfully upserted.");
+
                 } else {
-                    log.info({ razorpaySubscriptionId, currentStatus: existingSub.subscriptionStatus }, "Incoming 'active' event would be a status regression. Ignoring.");
+                    log.info({ razorpaySubscriptionId, currentStatus: existingSub.subscriptionStatus, newStatus }, "Incoming event would be a status regression. Ignoring update.");
                 }
 
                 break;
