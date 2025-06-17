@@ -19,7 +19,7 @@ module.exports = async function (fastify, opts) {
         if (store.isActive) { return reply.send({ success: true, message: 'Store is already active.' }); }
 
         // Call the reusable service function to get the status
-        const readinessStatus = await checkStoreActivationReadiness({ storeId, knex });
+        const readinessStatus = await checkStoreActivationReadiness({ store });
 
         // Return the detailed status object to the frontend
         return reply.send(readinessStatus);
