@@ -228,6 +228,21 @@ exports.up = async function (knex) {
         table.timestamp('created_at').defaultTo(knex.fn.now());
     });
 
+    await knex.schema.createTable('autoLoginTokens', function(table) {
+        table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
+        table.string('token').notNullable().unique().index();
+        table.enum('app', ['merchant', 'marketplace']).notNullable().index();
+        table.uuid('merchantId').nullable().references('merchantId').inTable('merchants').onDelete('CASCADE').index();
+        table.uuid('customerId').nullable().references('customerId').inTable('customers').onDelete('CASCADE').index();
+        table.check(`
+      (app = 'merchant' AND "merchantId" IS NOT NULL AND "customerId" IS NULL) OR
+      (app = 'marketplace' AND "customerId" IS NOT NULL AND "merchantId" IS NULL)
+    `, [], 'autologin_tokens_app_consistency');
+        table.boolean('isUsed').defaultTo(false).notNullable();
+        table.timestamp('expiresAt').notNullable();
+        table.timestamps(true, true);
+    });
+
     // Create `deliveryAddresses` table
     await knex.schema.createTable("deliveryAddresses", function (table) {
         table.uuid("addressId").primary();
@@ -563,6 +578,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("recipientAddresses");
     await knex.schema.dropTableIfExists("recipients");
     await knex.schema.dropTableIfExists("deliveryAddresses");
+    await knex.schema.dropTableIfExists("autoLoginTokens");
     await knex.schema.dropTableIfExists("otp_verification");
     await knex.schema.dropTableIfExists("customer_cart_checkouts");
     await knex.schema.dropTableIfExists("customer_carts");
