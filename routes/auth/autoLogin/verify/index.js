@@ -9,6 +9,8 @@ module.exports = async function (fastify, opts) {
     // Verifies a token and logs in a merchant
     fastify.post('/', async (request, reply) => {
         const { token } = request.body;
+
+        console.log('incoming token:',token);
         if (!token) return reply.status(400).send({ error: 'Token is required.' });
 
         const tokenRecord = await knex('autoLoginTokens').where({ token }).first();
