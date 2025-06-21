@@ -21,7 +21,7 @@ module.exports = async function (fastify) {
 
         // Destructure from query and body
         const { storeId, platform, env } = request.query;
-        const {legalBusinessName, accountNumber, ifscCode, beneficiaryName, stakeholderName, stakeholderEmail, stakeholderPan } = request.body;
+        const {legalBusinessName, businessType, registeredAddress, accountNumber, ifscCode, beneficiaryName, stakeholderName, stakeholderEmail, stakeholderPan } = request.body;
 
         // --- 1. Validate All Inputs ---
         if (!merchantId) {
@@ -31,7 +31,7 @@ module.exports = async function (fastify) {
         if (!storeId || !platform || !env) {
             return reply.status(400).send({ error: 'Bad Request: storeId, platform, and env query parameters are required.' });
         }
-        if (!legalBusinessName || !accountNumber || !ifscCode || !beneficiaryName || !stakeholderName || !stakeholderEmail || !stakeholderPan) {
+        if (!legalBusinessName || !businessType || !registeredAddress || !accountNumber || !ifscCode || !beneficiaryName || !stakeholderName || !stakeholderEmail || !stakeholderPan) {
             return reply.status(400).send({ error: 'Bad Request: account_number, ifsc_code, beneficiary_name and stakeholder details are required in the request body.' });
         }
         if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.toUpperCase())) {
@@ -57,7 +57,7 @@ module.exports = async function (fastify) {
             // --- 3. Encrypt and Upsert (Insert or Update) Bank Details ---
             await trx('merchants')
                 .where({ merchantId })
-                .update({ legalBusinessName });
+                .update({ legalBusinessName, registeredAddress, businessType });
             logger.info({ merchantId }, 'Successfully updated legalBusinessName.');
 
             const financialsPayload = {
