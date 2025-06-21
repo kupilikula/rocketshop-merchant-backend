@@ -21,7 +21,7 @@ module.exports = async function (fastify) {
 
         // Destructure from query and body
         const { storeId, platform, env } = request.query;
-        const {legalBusinessName, businessType, registeredAddress, accountNumber, ifscCode, beneficiaryName, stakeholderName, stakeholderEmail, stakeholderPan } = request.body;
+        const {phone, email, legalBusinessName, businessType, registeredAddress, accountNumber, ifscCode, beneficiaryName, stakeholderName, stakeholderEmail, stakeholderPan } = request.body;
 
         // --- 1. Validate All Inputs ---
         if (!merchantId) {
@@ -54,10 +54,14 @@ module.exports = async function (fastify) {
             }
             logger.info({ merchantId, storeId }, 'Store access verified.');
 
-            // --- 3. Encrypt and Upsert (Insert or Update) Bank Details ---
+            const merchantUpdatePayload = { legalBusinessName, registeredAddress, businessType };
+            if (email) merchantUpdatePayload.email = email; // Only update if provided
+            if (phone) merchantUpdatePayload.phone = phone; // Only update if provided
+
             await trx('merchants')
                 .where({ merchantId })
-                .update({ legalBusinessName, registeredAddress, businessType });
+                .update(merchantUpdatePayload);
+
             logger.info({ merchantId }, 'Successfully updated legalBusinessName.');
 
             const financialsPayload = {
