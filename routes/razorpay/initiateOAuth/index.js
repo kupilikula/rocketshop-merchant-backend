@@ -21,7 +21,7 @@ module.exports = async function (fastify) {
 
         // Destructure from query and body
         const { storeId, platform, env } = request.query;
-        const {legalBusinessName, account_number, ifsc_code, beneficiary_name, stakeholder_name, stakeholder_email, stakeholder_pan } = request.body;
+        const {legalBusinessName, accountNumber, ifscCode, beneficiaryName, stakeholderName, stakeholderEmail, stakeholderPan } = request.body;
 
         // --- 1. Validate All Inputs ---
         if (!merchantId) {
@@ -31,10 +31,10 @@ module.exports = async function (fastify) {
         if (!storeId || !platform || !env) {
             return reply.status(400).send({ error: 'Bad Request: storeId, platform, and env query parameters are required.' });
         }
-        if (!legalBusinessName || !account_number || !ifsc_code || !beneficiary_name || !stakeholder_name || !stakeholder_email || !stakeholder_pan) {
+        if (!legalBusinessName || !accountNumber || !ifscCode || !beneficiaryName || !stakeholderName || !stakeholderEmail || !stakeholderPan) {
             return reply.status(400).send({ error: 'Bad Request: account_number, ifsc_code, beneficiary_name and stakeholder details are required in the request body.' });
         }
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code.toUpperCase())) {
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.toUpperCase())) {
             return reply.status(400).send({ error: 'Invalid IFSC code format.' });
         }
         logger.info({ merchantId, storeId }, "Initiating OAuth and saving bank details for store.");
@@ -62,12 +62,12 @@ module.exports = async function (fastify) {
 
             const financialsPayload = {
                 merchantId: merchantId, // The Primary and Foreign Key for store_bank_accounts
-                beneficiaryName_encrypted: encryptText(beneficiary_name),
-                accountNumber_encrypted: encryptText(account_number),
-                ifscCode_encrypted: encryptText(ifsc_code),
-                stakeholder_name_encrypted: encryptText(stakeholder_name),
-                stakeholder_email_encrypted: encryptText(stakeholder_email),
-                stakeholder_pan_encrypted: encryptText(stakeholder_pan),
+                beneficiaryName_encrypted: encryptText(beneficiaryName),
+                accountNumber_encrypted: encryptText(accountNumber),
+                ifscCode_encrypted: encryptText(ifscCode),
+                stakeholder_name_encrypted: encryptText(stakeholderName),
+                stakeholder_email_encrypted: encryptText(stakeholderEmail),
+                stakeholder_pan_encrypted: encryptText(stakeholderPan),
                 updated_at: new Date()
             };
 
