@@ -9,8 +9,8 @@ const API_TIMEOUT = 7000;
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
-        // Use storeId from query params for context, and merchantId from the auth token
-        const { storeId } = request.query;
+
+        const { storeId } = request.params;
         const { merchantId } = request.user;
         const logger = fastify.log;
 
