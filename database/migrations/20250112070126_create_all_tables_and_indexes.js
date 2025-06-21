@@ -11,8 +11,8 @@ exports.up = async function (knex) {
         table.check('phone IS NOT NULL OR email IS NOT NULL', [], 'merchants_phone_or_email_required');
         table.boolean('isPlatformMerchant').notNullable().defaultTo(false).index();
         table.string('legalBusinessName').nullable();
-        table.string('businessType').notNullable();    // Or .notNullable()
-        table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
+        table.string('businessType').nullable();    // Or .notNullable()
+        table.jsonb('registeredAddress').nullable(); // Or .notNullable()
         table.timestamps(true, true);
     });
 
