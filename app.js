@@ -4,6 +4,8 @@ const path = require('node:path')
 const AutoLoad = require('@fastify/autoload')
 const cors = require('@fastify/cors')
 const {verifyAccessToken} = require("./services/TokenService");
+const rawBody = require('fastify-raw-body')
+const {fa} = require("@faker-js/faker");
 // Pass --options via CLI arguments in command to enable these options.
 const options = {}
 
@@ -46,6 +48,13 @@ module.exports = async function (fastify, opts) {
     }
   });
 
+  await fastify.register(rawBody, {
+    field: 'rawBody',
+    global: false,
+    encoding: 'utf8',
+    runFirst: true,
+  });
+
   fastify.decorateRequest('user', null); // Decorate the request with a user property
 
   fastify.addHook('onRequest', async (request, reply) => {
@@ -58,6 +67,7 @@ module.exports = async function (fastify, opts) {
         '/auth/register',
       '/auth/refreshToken',
       '/auth/logout',
+        '/auth/autoLogin/verify',
         '/razorpay/webhook',
         '/razorpay/callback',
     ];

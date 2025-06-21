@@ -26,12 +26,16 @@ module.exports = async function (fastify, opts) {
         }
 
         // Role-based checks
+        if (requestingMerchant.merchantRole === 'Admin' && ['Owner', 'Admin'].includes(targetMerchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Admins can only remove Manager/Staff merchants.' });
+        }
+
         if (requestingMerchant.merchantRole === 'Manager' && targetMerchant.merchantRole !== 'Staff') {
             return reply.status(403).send({ error: 'Managers can only remove Staff merchants.' });
         }
 
-        if (requestingMerchant.merchantRole !== 'Admin' && requestingMerchant.merchantRole !== 'Manager') {
-            return reply.status(403).send({ error: 'Only Admin or Manager can remove merchants.' });
+        if (!['Owner', 'Admin', 'Manager'].includes(requestingMerchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Only Owner, Admin or Manager can remove merchants.' });
         }
 
         // Total merchants in store
@@ -44,15 +48,15 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: 'Cannot remove the only merchant from the store.' });
         }
 
-        // Prevent removing the only Admin
-        if (targetMerchant.merchantRole === 'Admin') {
-            const adminCount = await knex('merchantStores')
-                .where({ storeId, merchantRole: 'Admin' })
+        // Prevent removing the only Owner
+        if (targetMerchant.merchantRole === 'Owner') {
+            const ownerCount = await knex('merchantStores')
+                .where({ storeId, merchantRole: 'Owner' })
                 .count('merchantStoreId as count')
                 .first();
 
-            if (adminCount.count <= 1) {
-                return reply.status(400).send({ error: 'Cannot remove the only Admin from the store.' });
+            if (ownerCount.count <= 1) {
+                return reply.status(400).send({ error: 'Cannot remove the only Owner from the store.' });
             }
         }
 

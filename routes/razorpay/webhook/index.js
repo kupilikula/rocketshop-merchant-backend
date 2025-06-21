@@ -33,7 +33,6 @@ const TERMINAL_OR_POST_PENDING_STATUSES = [
     ...CANCELED_OR_FAILED_STATUSES
 ];
 
-
 // --- Helper function for timing-safe comparison (optional but recommended) ---
 const safeCompare = (a, b) => {
     try {
@@ -51,6 +50,13 @@ const safeCompare = (a, b) => {
     }
 };
 
+const SUBSCRIPTION_STATUS_PROGRESSION = {
+    'authenticated': 1,
+    'active': 2,
+    'cancelled': 3, // A user can cancel an active or authenticated sub
+    'ended': 4,
+};
+
 module.exports = async function (fastify, opts) {
 
     // --- IMPORTANT: Raw Body Configuration ---
@@ -58,7 +64,11 @@ module.exports = async function (fastify, opts) {
     // Example plugin registration config: { field: 'rawBody', encoding: 'utf8', runFirst: true }
     // Without the raw body, signature verification *will not work*.
 
-    fastify.post('/', async function (request, reply) {
+    fastify.post('/', {
+        config: {
+            rawBody: true // This enables the fastify-raw-body plugin for this route
+        },
+    }, async function (request, reply) {
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         const receivedSignature = request.headers['x-razorpay-signature'];
         // Use the raw body provided by Fastify config/plugin
@@ -132,178 +142,250 @@ module.exports = async function (fastify, opts) {
 // --- Refactored Webhook Processing Function ---
 
 // --- Main Processing Function ---
-async function processWebhookEvent(payload, log, db) { // Pass knex instance as db
-    const eventType = payload.event;
-    const eventData = payload?.payload;
-    // Use optional chaining for safer access to entity based on event type
-    const entity = eventData?.[eventType?.split('.')[0]]?.entity;
 
-    if (!eventType || !eventData || !entity) {
-        log.warn({ payload }, "Webhook payload missing expected structure.");
+async function processWebhookEvent(payload, log, db) { // knex instance passed as db
+    const eventType = payload.event;
+    const entity = payload.payload?.[eventType.split('.')[0]]?.entity;
+
+    if (!eventType || !entity) {
+        log.warn({ payload }, "Webhook payload missing expected structure. Skipping.");
         return;
     }
 
-    // Use Razorpay Order ID for primary lookup, specific entity ID for context
-    const primaryEntityId = entity.id; // e.g., payment_id, order_id, transfer_id
-    const razorpayOrderId = entity.order_id; // Crucial link back to your mapping
+    // Use the subscription ID as the primary link
+    const razorpaySubscriptionId = entity.id;
+    const storeId = entity.notes?.store_id;
+    log.info(`Processing Razorpay Event: ${eventType}, Entity ID: ${entity.id}`);
 
-    if (!razorpayOrderId && (eventType.startsWith('payment.') || eventType.startsWith('order.'))) {
-        log.error({ payload }, "Webhook payload for payment/order event missing Razorpay Order ID.");
-        return; // Cannot map back without order_id
-    }
-
-    log.info(`Processing Razorpay Event: ${eventType}, Entity ID: ${primaryEntityId}, Razorpay Order ID: ${razorpayOrderId || 'N/A'}`);
-
+    // Use a single transaction for all database operations for this event.
     const trx = await db.transaction();
     try {
         switch (eventType) {
-            case 'payment.captured': {
-                const paymentId = primaryEntityId; // entity.id is paymentId here
-                const amount = entity.amount;
-                const currency = entity.currency;
-                const newStatus = "Payment Received"; // From your list
-
-                log.info({ razorpayOrderId, paymentId, amount, currency }, `Event: payment.captured. Attempting to update status to "${newStatus}"`);
-
-                // --- Fetch platformOrderIds from the mapping table ---
-                const mappings = await trx('razorpay_order_mapping')
-                    .select('platformOrderId')
-                    .where('razorpayOrderId', razorpayOrderId);
-
-                if (!mappings || mappings.length === 0) {
-                    log.error({ razorpayOrderId }, "Could not find associated platform orders in mapping table for Razorpay order ID.");
-                    await trx.rollback(); return;
+            // --- Subscription Event Handling ---
+            case 'subscription.authenticated':
+            case 'subscription.charged':
+            case 'subscription.activated': {
+                if (!storeId) {
+                    log.error({ razorpaySubscriptionId, eventType }, "Webhook Error: store_id missing from notes.");
+                    await trx.rollback();
+                    return;
                 }
-                const platformOrderIds = mappings.map(m => m.platformOrderId);
-                // --- End Fetch ---
 
-                for (const platformOrderId of platformOrderIds) {
-                    const currentOrder = await trx('orders').where('orderId', platformOrderId).forUpdate().first();
-                    if (!currentOrder) {
-                        log.warn({ platformOrderId, razorpayOrderId, paymentId }, "Platform order not found during payment capture processing.");
-                        continue;
+                // 1. Determine the intended new status based on the event
+                let newStatus = 'authenticated';
+                if (eventType === 'subscription.charged' || eventType === 'subscription.activated') {
+                    newStatus = 'active';
+                }
+
+                log.info({ storeId, subId: razorpaySubscriptionId, eventType, newStatus }, `Attempting to set status to '${newStatus}'.`);
+
+                // 2. Find the existing record to check its current status
+                const existingSub = await trx('storeSubscriptions').where({ razorpaySubscriptionId }).first();
+
+                const currentStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[existingSub?.subscriptionStatus] || 0;
+                const newStatusValue = SUBSCRIPTION_STATUS_PROGRESSION[newStatus];
+
+                // 3. THE CORE FIX: Only proceed if the new state is a forward progression
+                if (!existingSub || newStatusValue > currentStatusValue) {
+                    let periodStart = entity.current_start;
+                    let periodEnd = entity.current_end;
+
+                    // Calculate period for future-dated 'authenticated' subs
+                    if (newStatus === 'authenticated' && !periodStart && entity.start_at) {
+                        const startDate = new Date(entity.start_at * 1000);
+                        periodStart = entity.start_at;
+                        const endDate = new Date(startDate);
+                        let planPeriod;
+                        if (entity.plan_id === process.env.MONTHLY_SUBSCRIPTION_PLAN_ID) planPeriod = 'monthly';
+                        else if (entity.plan_id === process.env.ANNUAL_SUBSCRIPTION_PLAN_ID) planPeriod = 'annual';
+
+                        if (planPeriod === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+                        else if (planPeriod === 'annual') endDate.setFullYear(endDate.getFullYear() + 1);
+
+                        periodEnd = Math.floor(endDate.getTime() / 1000);
                     }
 
-                    // Idempotency Check
-                    if (!POST_PAYMENT_PROCESS_STATUSES.includes(currentOrder.orderStatus)) {
-                        log.info({ platformOrderId, paymentId, oldStatus: currentOrder.orderStatus, newStatus }, "Updating order status.");
-                        await trx('orders')
-                            .where('orderId', platformOrderId)
-                            .update({
-                                orderStatus: newStatus,
-                                orderStatusUpdateTime: new Date(),
-                                paymentId: paymentId, // Uses paymentId column
-                                updated_at: new Date()
-                            });
+                    const subscriptionData = {
+                        storeId,
+                        razorpayPlanId: entity.plan_id,
+                        razorpaySubscriptionId,
+                        subscriptionStatus: newStatus,
+                        currentPeriodStart: periodStart ? db.raw('to_timestamp(?)', [periodStart]) : null,
+                        currentPeriodEnd: periodEnd ? db.raw('to_timestamp(?)', [periodEnd]) : null,
+                        updated_at: new Date()
+                    };
 
-                        await trx('order_status_history').insert({
-                            orderStatusId: uuidv4(),
-                            orderId: platformOrderId,
+                    await trx('storeSubscriptions')
+                        .insert({ ...subscriptionData, subscriptionId: uuidv4(), created_at: new Date() })
+                        .onConflict('razorpaySubscriptionId').merge(subscriptionData);
+
+                    log.info({ razorpaySubscriptionId, newStatus }, "Subscription record successfully upserted.");
+
+                } else {
+                    log.info({ razorpaySubscriptionId, currentStatus: existingSub.subscriptionStatus, newStatus }, "Incoming event would be a status regression. Ignoring update.");
+                }
+
+                break;
+            }
+
+            // Add this new case to your switch statement in processWebhookEvent
+
+            case 'subscription.ended': {
+                const subscription = entity;
+                const razorpaySubscriptionId = subscription.id;
+
+                log.info({ razorpaySubscriptionId }, "Event: subscription.ended. Deactivating store and updating subscription status.");
+
+                // 1. Find the subscription in your database using the ID from Razorpay.
+                const localSubscription = await trx('storeSubscriptions')
+                    .where('razorpaySubscriptionId', razorpaySubscriptionId)
+                    .forUpdate() // Lock the row for the transaction
+                    .first();
+
+                if (!localSubscription) {
+                    log.error({ razorpaySubscriptionId }, "Webhook Error: Received 'subscription.ended' event for a subscription not found in our database.");
+                    await trx.rollback();
+                    return;
+                }
+
+                const { storeId } = localSubscription;
+
+                // 2. Update the subscription's status in your database to 'ended' to match Razorpay.
+                await trx('storeSubscriptions')
+                    .where('razorpaySubscriptionId', razorpaySubscriptionId)
+                    .update({
+                        subscriptionStatus: 'ended', // Reflect the final state
+                        updated_at: new Date(),
+                    });
+
+                // 3. Deactivate the associated store.
+                await trx('stores')
+                    .where('storeId', storeId)
+                    .update({
+                        isActive: false,
+                    });
+
+                log.info({ storeId, razorpaySubscriptionId }, "Store has been successfully deactivated as its subscription period has ended.");
+                break;
+            }
+
+            // --- Refactored Order Event Handling ---
+            case 'payment.captured': {
+                const payment = entity;
+                const razorpayOrderId = payment.order_id;
+                const newStatus = "Payment Received";
+
+                if (!razorpayOrderId) {
+                    log.error({ paymentId: payment.id }, "Webhook Error: razorpay_order_id missing from payment entity.");
+                    await trx.rollback();
+                    return;
+                }
+
+                const order = await trx('orders').where('razorpayOrderId', razorpayOrderId).forUpdate().first();
+
+                if (!order) {
+                    log.error({ razorpayOrderId }, "Could not find an associated platform order for this Razorpay order ID.");
+                    await trx.rollback();
+                    return;
+                }
+
+                if (!POST_PAYMENT_PROCESS_STATUSES.includes(order.orderStatus)) {
+                    await trx('orders')
+                        .where('orderId', order.orderId)
+                        .update({
                             orderStatus: newStatus,
-                            notes: `Payment captured via Razorpay. ID: ${paymentId}`, // Uses notes column
+                            orderStatusUpdateTime: new Date(),
+                            paymentId: payment.id,
+                            updated_at: new Date()
                         });
 
-                        // Convert Reserved Stock
-                        const orderItems = await trx('order_items').where('orderId', platformOrderId);
-                        for (const item of orderItems) {
-                            const product = await trx('products').where('productId', item.productId).first('reservedStock');
-                            if (product && product.reservedStock >= item.quantity) {
-                                await trx('products').where('productId', item.productId).decrement('reservedStock', item.quantity);
-                                log.info({ productId: item.productId, quantity: item.quantity }, "Decremented reserved stock.");
-                            } else { /* log warning */ }
-                        }
-                        log.info({ platformOrderId }, "Order processed successfully based on payment capture.");
-                        // Trigger downstream processes...
+                    await trx('order_status_history').insert({
+                        orderStatusId: uuidv4(),
+                        orderId: order.orderId,
+                        orderStatus: newStatus,
+                        notes: `Payment captured via Razorpay. ID: ${payment.id}`,
+                    });
 
-                    } else {
-                        log.info({ platformOrderId, currentStatus: currentOrder.orderStatus }, "Order already processed post-payment. Skipping update (Idempotency).");
+                    log.info({ platformOrderId: order.orderId, paymentId: payment.id }, "Order status updated to 'Payment Received'.");
+
+                    const orderItems = await trx('order_items').where('orderId', order.orderId);
+                    for (const item of orderItems) {
+                        // This moves stock from "reserved" to "sold" (by decrementing reserved)
+                        await trx('products').where('productId', item.productId).decrement('reservedStock', item.quantity);
+                        log.info({ productId: item.productId, quantity: item.quantity }, "Decremented reserved stock upon successful payment.");
                     }
+                } else {
+                    log.info({ platformOrderId: order.orderId, currentStatus: order.orderStatus }, "Order already processed post-payment. Skipping update (Idempotency).");
                 }
                 break;
-            } // End case payment.captured
+            }
 
             case 'payment.failed': {
-                const paymentId = primaryEntityId; // entity.id is paymentId here
-                const errorCode = entity.error_code;
-                const errorDesc = entity.error_description;
-                const failedStatus = "Payment Failed"; // From your list
+                const payment = entity;
+                const razorpayOrderId = payment.order_id;
+                const failedStatus = "Payment Failed";
 
-                log.warn({ razorpayOrderId, paymentId, errorCode, errorDesc }, `Event: payment.failed. Attempting to update status to "${failedStatus}"`);
+                if (!razorpayOrderId) {
+                    log.error({ paymentId: payment.id }, "Webhook Error: razorpay_order_id missing from payment entity on failure event.");
+                    await trx.rollback();
+                    return;
+                }
 
-                // --- Fetch platformOrderIds from mapping table ---
-                const mappings = await trx('razorpay_order_mapping').select('platformOrderId').where('razorpayOrderId', razorpayOrderId);
-                if (!mappings || mappings.length === 0) { /* ... error handle ... */ await trx.rollback(); return; }
-                const platformOrderIds = mappings.map(m => m.platformOrderId);
-                // --- End Fetch ---
+                const order = await trx('orders').where('razorpayOrderId', razorpayOrderId).forUpdate().first();
 
-                for (const platformOrderId of platformOrderIds) {
-                    const currentOrder = await trx('orders').where('orderId', platformOrderId).forUpdate().first();
-                    if (!currentOrder) { /* ... log warning ... */ continue; }
+                if (!order) {
+                    log.error({ razorpayOrderId }, "Could not find an associated platform order for this failed payment.");
+                    await trx.rollback();
+                    return;
+                }
 
-                    // Idempotency Check
-                    if (!TERMINAL_OR_POST_PENDING_STATUSES.includes(currentOrder.orderStatus)) {
-                        log.warn({ platformOrderId, paymentId, oldStatus: currentOrder.orderStatus, newStatus: failedStatus }, `Updating order status.`);
-                        await trx('orders')
-                            .where('orderId', platformOrderId)
-                            .update({
-                                orderStatus: failedStatus,
-                                orderStatusUpdateTime: new Date(),
-                                paymentId: paymentId, // Uses paymentId column
-                                updated_at: new Date()
-                            });
-
-                        await trx('order_status_history').insert({
-                            orderStatusId: uuidv4(),
-                            orderId: platformOrderId,
+                if (!TERMINAL_OR_POST_PENDING_STATUSES.includes(order.orderStatus)) {
+                    await trx('orders')
+                        .where('orderId', order.orderId)
+                        .update({
                             orderStatus: failedStatus,
-                            notes: `Payment failed via Razorpay. ID: ${paymentId}. Reason: ${errorCode} - ${errorDesc}`, // Uses notes column
+                            orderStatusUpdateTime: new Date(),
+                            paymentId: payment.id,
+                            updated_at: new Date()
                         });
 
-                        // Release Reserved Stock
-                        const orderItems = await trx('order_items').where('orderId', platformOrderId);
-                        for (const item of orderItems) {
-                            const product = await trx('products').where('productId', item.productId).first('reservedStock');
-                            if (product && product.reservedStock >= item.quantity) {
-                                await trx('products').where('productId', item.productId).decrement('reservedStock', item.quantity);
-                                log.info({ productId: item.productId, quantity: item.quantity }, "Released reserved stock.");
-                            } else { /* log warning */ }
-                        }
-                    } else {
-                        log.info({ platformOrderId, currentStatus: currentOrder.orderStatus }, "Order status already terminal/processed. Skipping failure update (Idempotency).");
+                    await trx('order_status_history').insert({
+                        orderStatusId: uuidv4(),
+                        orderId: order.orderId,
+                        orderStatus: failedStatus,
+                        notes: `Payment failed via Razorpay. ID: ${payment.id}. Reason: ${payment.error_code} - ${payment.error_description}`,
+                    });
+
+                    log.warn({ platformOrderId: order.orderId }, "Order status updated to 'Payment Failed'. Releasing reserved stock.");
+
+                    const orderItems = await trx('order_items').where('orderId', order.orderId);
+                    for (const item of orderItems) {
+                        // This releases the stock from "reserved" back into the main pool.
+                        await trx('products').where('productId', item.productId)
+                            .increment('stockQuantity', item.quantity)
+                            .decrement('reservedStock', item.quantity);
+                        log.info({ productId: item.productId, quantity: item.quantity }, "Released reserved stock due to payment failure.");
                     }
+                } else {
+                    log.info({ platformOrderId: order.orderId, currentStatus: order.orderStatus }, "Order status already terminal/processed. Skipping failure update (Idempotency).");
                 }
                 break;
-            } // End case payment.failed
+            }
 
-            // --- Handle other relevant events ---
-            case 'order.paid':
-                // Usually less critical if payment.captured is handled robustly
-                log.info({ orderId: entity.id }, `Event: order.paid received.`);
-                // Can add logic to update to 'Payment Received' here too,
-                // ensuring same idempotency checks are used.
-                break;
-
-            case 'transfer.processed':
-                log.info({ transferId: primaryEntityId, recipient: entity.recipient }, "Event: transfer.processed");
-                // Update internal transfer/payout status records if needed
-                break;
-
-            case 'transfer.failed':
-                log.warn({ transferId: primaryEntityId, recipient: entity.recipient, error: entity.error_reason }, "Event: transfer.failed");
-                // Log critical failure, alert administrators
-                break;
-
+            // You can add other cases like 'transfer.processed' here if needed.
             default:
-                log.info(`Unhandled event type received: ${eventType}`);
-        } // End switch
+                log.info(`Unhandled event type received and ignored: ${eventType}`);
+        }
 
         await trx.commit();
-        log.info(`Successfully processed and committed DB changes for event: ${eventType}, Entity ID: ${primaryEntityId}`);
+        log.info(`Successfully processed and committed DB changes for event: ${eventType}`);
 
     } catch (dbError) {
-        log.error({ err: dbError, eventType, entityId: entity?.id }, "Database error during webhook event processing. Rolling back transaction.");
+        log.error({ err: dbError, eventType }, "Database error during webhook event processing. Rolling back transaction.");
         await trx.rollback();
-        // Log to error monitoring
+        // Re-throwing the error is good practice if you have an external service
+        // that monitors for unhandled promise rejections or errors.
+        throw dbError;
     }
 }
 
