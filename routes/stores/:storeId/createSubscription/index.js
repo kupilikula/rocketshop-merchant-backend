@@ -32,10 +32,10 @@ module.exports = async function (fastify, opts) {
         }
 
         const merchant = await knex('merchants').where({merchantId})
-            .select('phone', 'email').first();
+            .select('phone', 'email', 'merchantRole').first();
 
-        if (!merchant) {
-            return reply.status(400).send({ error: 'Merchant not found.' });
+        if (!merchant || merchant.merchantRole !== 'Owner') {
+            return reply.status(400).send({ error: 'Merchant not found or does not have permission to create subscriptions.' });
         }
 
         const store = await knex('stores').where({storeId}).select('isPlatformOwned').first();
