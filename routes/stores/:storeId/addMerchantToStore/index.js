@@ -11,7 +11,7 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: "Missing phone, merchantRole, fullName or canReceiveMessages" });
         }
 
-        if (!['Admin', 'Manager', 'Staff'].includes(merchantRole)) {
+        if (!['Owner','Admin', 'Manager', 'Staff'].includes(merchantRole)) {
             return reply.status(400).send({ error: "Invalid merchantRole" });
         }
 
@@ -19,12 +19,17 @@ module.exports = async function (fastify, opts) {
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
 
-        if (!requestingMerchant || (requestingMerchant.merchantRole !== 'Admin' && requestingMerchant.merchantRole !== 'Manager')) {
-            return reply.status(403).send({ error: "Only Admin or Manager roles can add merchants" });
+        if (!requestingMerchant || !['Owner', 'Admin', 'Manager'].includes(requestingMerchant.merchantRole)) {
+            return reply.status(403).send({ error: "Only Owner, Admin or Manager roles can add merchants" });
         }
 
-        // Restrict Manager from adding Admins
-        if (requestingMerchant.merchantRole === 'Manager' && merchantRole === 'Admin') {
+        // Restrict Admin from adding Owner
+        if (requestingMerchant.merchantRole === 'Admin' && merchantRole === 'Owner') {
+            return reply.status(403).send({ error: "Admins can only add Admin, Staff or Manager roles" });
+        }
+
+        // Restrict Manager from adding Admins or Owners
+        if (requestingMerchant.merchantRole === 'Manager' && ['Owner','Admin'].includes(merchantRole)) {
             return reply.status(403).send({ error: "Managers can only add Staff or Manager roles" });
         }
 

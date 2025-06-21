@@ -54,13 +54,13 @@ module.exports = async function (fastify, opts) {
             return reply.status(401).send({ error: 'Invalid or unverified OTP session.' });
         }
 
-        // 2. Check Admin role
+        // 2. Check Owner role
         const merchant = await knex('merchantStores')
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
 
-        if (!merchant || merchant.merchantRole !== 'Admin') {
-            return reply.status(403).send({ error: 'Only Admin merchants can delete the store.' });
+        if (!merchant || merchant.merchantRole !== 'Owner') {
+            return reply.status(403).send({ error: 'Only Owner merchants can delete the store.' });
         }
 
         // 3. Fetch and validate store

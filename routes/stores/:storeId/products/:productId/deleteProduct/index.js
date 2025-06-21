@@ -53,9 +53,9 @@ module.exports = async function (fastify, opts) {
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
 
-        if (!merchant || merchant.merchantRole !== 'Admin') {
+        if (!merchant || !['Owner','Admin'].includes(merchant.merchantRole)) {
             console.timeEnd('Total Delete Product Request');
-            return reply.status(403).send({ error: 'Only Admin merchants can delete products.' });
+            return reply.status(403).send({ error: 'Only Admin/Owner merchants can delete products.' });
         }
 
         // 2. Fetch and validate product

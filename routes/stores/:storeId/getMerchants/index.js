@@ -15,8 +15,8 @@ module.exports = async function (fastify, opts) {
         }
 
         // Only allow Admin or Manager to fetch merchants list
-        if (!['Admin', 'Manager'].includes(requestingMerchant.merchantRole)) {
-            return reply.status(403).send({ error: 'Only Admin or Manager can view store merchants' });
+        if (!['Owner','Admin', 'Manager'].includes(requestingMerchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Only Owner, Admin or Manager can view store merchants' });
         }
 
         // Fetch merchants

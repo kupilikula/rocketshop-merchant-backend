@@ -21,7 +21,7 @@ module.exports = async function (fastify) {
 
         // Destructure from query and body
         const { storeId, platform, env } = request.query;
-        const { account_number, ifsc_code, beneficiary_name, stakeholder_name, stakeholder_email, stakeholder_pan } = request.body;
+        const {legalBusinessName, account_number, ifsc_code, beneficiary_name, stakeholder_name, stakeholder_email, stakeholder_pan } = request.body;
 
         // --- 1. Validate All Inputs ---
         if (!merchantId) {
@@ -31,7 +31,7 @@ module.exports = async function (fastify) {
         if (!storeId || !platform || !env) {
             return reply.status(400).send({ error: 'Bad Request: storeId, platform, and env query parameters are required.' });
         }
-        if (!account_number || !ifsc_code || !beneficiary_name || !stakeholder_name || !stakeholder_email || !stakeholder_pan) {
+        if (!legalBusinessName || !account_number || !ifsc_code || !beneficiary_name || !stakeholder_name || !stakeholder_email || !stakeholder_pan) {
             return reply.status(400).send({ error: 'Bad Request: account_number, ifsc_code, beneficiary_name and stakeholder details are required in the request body.' });
         }
         if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code.toUpperCase())) {
@@ -44,7 +44,7 @@ module.exports = async function (fastify) {
         try {
             // --- 2. Verify Merchant Access to the Store ---
             const storeAccess = await trx('merchantStores')
-                .where({ storeId, merchantId })
+                .where({ storeId, merchantId, merchantRole: 'Owner' })
                 .first('merchantStoreId');
 
             if (!storeAccess) {
@@ -55,8 +55,13 @@ module.exports = async function (fastify) {
             logger.info({ merchantId, storeId }, 'Store access verified.');
 
             // --- 3. Encrypt and Upsert (Insert or Update) Bank Details ---
-            const bankDetailsPayload = {
-                storeId: storeId, // The Primary and Foreign Key for store_bank_accounts
+            await trx('merchants')
+                .where({ merchantId })
+                .update({ legalBusinessName });
+            logger.info({ merchantId }, 'Successfully updated legalBusinessName.');
+
+            const financialsPayload = {
+                merchantId: merchantId, // The Primary and Foreign Key for store_bank_accounts
                 beneficiaryName_encrypted: encryptText(beneficiary_name),
                 accountNumber_encrypted: encryptText(account_number),
                 ifscCode_encrypted: encryptText(ifsc_code),
@@ -67,18 +72,17 @@ module.exports = async function (fastify) {
             };
 
             // Check if encryption returned empty strings, indicating an error (e.g., missing key)
-            if (!bankDetailsPayload.beneficiaryName_encrypted || !bankDetailsPayload.accountNumber_encrypted || !bankDetailsPayload.ifscCode_encrypted) {
+            if (!financialsPayload.beneficiaryName_encrypted || !financialsPayload.accountNumber_encrypted || !financialsPayload.ifscCode_encrypted) {
                 logger.error({ storeId }, "Encryption failed, likely due to missing ENCRYPTION_KEY. Aborting.");
                 // Do not rollback yet, just throw to be caught by the main catch block which will rollback.
                 throw new Error("Server encryption configuration error.");
             }
 
-            await trx('store_bank_accounts')
-                .insert(bankDetailsPayload)
-                .onConflict('storeId') // Based on the primary key constraint
-                .merge(); // .merge() without args will update all columns from the insert object on conflict
+            await trx('merchant_financials')
+                .insert(financialsPayload)
+                .onConflict('merchantId').merge(); // Upsert based on merchantId
 
-            logger.info({ storeId }, 'Successfully encrypted and saved/updated bank details.');
+            logger.info({ merchantId }, 'Successfully saved/updated merchant financial details.');
 
             // --- 4. Generate and Store Secure State (within the same transaction) ---
             const prefix = `${platform}_${env}_`;
@@ -88,6 +92,7 @@ module.exports = async function (fastify) {
             await trx('razorpay_oauth_states').insert({
                 state: state,
                 storeId: storeId,
+                merchantId: merchantId,
                 expires_at: expiresAt,
             });
             logger.info({ state: state.substring(0, 10) + '...', storeId }, 'Stored OAuth state in DB.');

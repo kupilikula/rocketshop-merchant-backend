@@ -16,8 +16,8 @@ module.exports = async function (fastify, opts) {
             .where({ storeId, merchantId })
             .first();
 
-        if (!requestingMerchant || requestingMerchant.merchantRole !== 'Admin') {
-            return reply.status(403).send({ error: 'Only Admin merchants can update GST settings.' });
+        if (!requestingMerchant || !['Owner', 'Admin'].includes(requestingMerchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Only Owner/Admin merchants can update GST settings.' });
         }
 
         if (defaultGstRate !== undefined && !GST_RATES.includes(defaultGstRate)) {

@@ -49,7 +49,7 @@ module.exports = async function (fastify, opts) {
             .where({ storeId, merchantId: merchantId })
             .first();
 
-        if (!merchant || merchant.merchantRole !== 'Admin') {
+        if (!merchant || !['Owner','Admin'].includes(merchant.merchantRole)) {
             return reply.status(403).send({ error: 'Only Admin merchants can deactivate the store.' });
         }
 

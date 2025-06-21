@@ -66,18 +66,18 @@ module.exports = async function (fastify, opts) {
                     .select('merchants.phone as merchantPhone', 'merchants.email as merchantEmail', 'merchantStores.merchantRole')
                     .first();
 
-                if (!merchantStoreLink || merchantStoreLink.merchantRole !== 'Admin') {
-                    return reply.status(403).send({error: 'Only Admin merchants can perform this action.'});
+                if (!merchantStoreLink || !['Owner','Admin'].includes(merchantStoreLink.merchantRole)) {
+                    return reply.status(403).send({error: 'Only Owner/Admin merchants can perform this action.'});
                 }
                 if (type === 'phone') {
                     if (!merchantStoreLink.merchantPhone) {
-                        return reply.status(400).send({message: 'Admin merchant does not have a registered phone number for this action.'});
+                        return reply.status(400).send({message: 'Owner/Admin merchant does not have a registered phone number for this action.'});
                     }
                     effectiveIdentifier = merchantStoreLink.merchantPhone;
                     effectiveType = 'phone';
                 } else if (type === 'email') {
                     if (!merchantStoreLink.merchantEmail) {
-                        return reply.status(400).send({message: 'Admin merchant does not have a registered email for this action.'});
+                        return reply.status(400).send({message: 'Owner/Admin merchant does not have a registered email for this action.'});
                     }
                     effectiveIdentifier = merchantStoreLink.merchantEmail;
                     effectiveType = 'email';

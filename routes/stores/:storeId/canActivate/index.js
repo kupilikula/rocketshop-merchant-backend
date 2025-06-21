@@ -9,8 +9,8 @@ module.exports = async function (fastify, opts) {
         const { merchantId } = request.user;
 
         // Security Check: Ensure the logged-in user is an admin of this store
-        const merchant = await knex('merchantStores').where({ storeId, merchantId, merchantRole: 'Admin' }).first();
-        if (!merchant) {
+        const merchant = await knex('merchantStores').where({ storeId, merchantId }).first();
+        if (!merchant || !['Owner', 'Admin'].includes(merchant.merchantRole)) {
             return reply.status(403).send({ error: 'You do not have permission to view this store\'s activation status.' });
         }
 

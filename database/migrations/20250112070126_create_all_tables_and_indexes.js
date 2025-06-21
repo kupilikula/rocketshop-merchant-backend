@@ -10,6 +10,9 @@ exports.up = async function (knex) {
         table.string("email").unique().nullable().defaultTo(null);
         table.check('phone IS NOT NULL OR email IS NOT NULL', [], 'merchants_phone_or_email_required');
         table.boolean('isPlatformMerchant').notNullable().defaultTo(false).index();
+        table.string('legalBusinessName').nullable();
+        table.string('businessType').notNullable();    // Or .notNullable()
+        table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
         table.timestamps(true, true);
     });
 
@@ -24,13 +27,10 @@ exports.up = async function (knex) {
         table.jsonb("storeTags").defaultTo("[]");
         table.decimal('rating').defaultTo(0);
         table.integer('numberOfRatings').notNullable().defaultTo(0);
-        table.string('legalBusinessName').notNullable(); // Or .notNullable() if always required at creation
         table.string('storeEmail').notNullable();      // Or .notNullable()
         table.string('storePhone').notNullable();      // Or .notNullable()
-        table.string('businessType').notNullable();    // Or .notNullable()
         table.string('category').notNullable();        // Or .notNullable()
         table.string('subcategory').nullable();     // Sub-category can often be optional
-        table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
         table.boolean("isActive").defaultTo(false);
         table.boolean('isPlatformOwned').notNullable().defaultTo(false).index();
         table.timestamps(true, true);
@@ -41,7 +41,7 @@ exports.up = async function (knex) {
         table.uuid('merchantStoreId').primary();
         table.uuid('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
         table.uuid('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
-        table.enum('merchantRole', ['Admin', 'Manager', 'Staff']).notNullable();
+        table.enum('merchantRole', ['Owner','Admin', 'Manager', 'Staff']).notNullable();
         table.boolean('canReceiveMessages').defaultTo(true);
         table.timestamps(true, true);
     });
@@ -151,29 +151,13 @@ exports.up = async function (knex) {
     await knex.schema.createTable('razorpay_oauth_states', function(table) {
         table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
         table.string('state').unique().notNullable().index(); // Unique state string
+        table.uuid('merchantId').notNullable().index(); // Store this flow was initiated for
         table.uuid('storeId').notNullable().index(); // Store this flow was initiated for
         table.foreign('storeId').references('storeId').inTable('stores').onDelete('CASCADE'); // Link to stores
         table.timestamp('expires_at', { useTz: true }).notNullable().index(); // State expiration
         table.timestamp('created_at', { useTz: true }).defaultTo(knex.fn.now());
     });
     console.log("Created table: razorpay_oauth_states.");
-
-    await knex.schema.createTable('store_bank_accounts', function(table) {
-        // This column is both the Primary Key and the Foreign Key to the 'stores' table.
-        // This enforces a strict one-to-one relationship: one store can have only one bank account record.
-        table.uuid('storeId').primary();
-        table.foreign('storeId').references('storeId').inTable('stores').onDelete('CASCADE');
-
-        // Store encrypted bank details. Storing as 'text' is safe for encrypted output.
-        table.text('beneficiaryName_encrypted').notNullable();
-        table.text('accountNumber_encrypted').notNullable();
-        table.text('ifscCode_encrypted').notNullable();
-        table.text('stakeholder_name_encrypted').nullable();
-        table.text('stakeholder_email_encrypted').nullable();
-        table.text('stakeholder_pan_encrypted').nullable();
-        // Standard created_at and updated_at timestamps
-        table.timestamps(true, true);
-    });
 
     // Central table to store unique credentials for each linked Razorpay Account
     console.log("Creating table: razorpay_credentials...");
@@ -190,11 +174,23 @@ exports.up = async function (knex) {
         table.timestamp('tokenExpiresAt', { useTz: true }).nullable(); // Access token expiry
         table.text('grantedScopes').nullable(); // Store granted scopes as text
         // Optional: Track which merchant user initially linked this account
-        table.uuid('addedByMerchantId').nullable().index();
+        table.uuid('addedByMerchantId').notNullable().unique().index();
         table.foreign('addedByMerchantId').references('merchantId').inTable('merchants').onDelete('SET NULL');
         table.timestamps(true, true); // created_at, updated_at
     });
     console.log("Created table: razorpay_credentials.");
+
+    await knex.schema.createTable('merchant_financials', function(table) {
+        table.uuid('merchantId').primary();
+        table.foreign('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
+        table.text('beneficiaryName_encrypted').notNullable();
+        table.text('accountNumber_encrypted').notNullable();
+        table.text('ifscCode_encrypted').notNullable();
+        table.text('stakeholder_name_encrypted').notNullable();
+        table.text('stakeholder_email_encrypted').notNullable();
+        table.text('stakeholder_pan_encrypted').notNullable();
+        table.timestamps(true, true);
+    });
 
     console.log("Creating table: store_razorpay_links...");
     await knex.schema.createTable('store_razorpay_links', function(table) {
@@ -567,7 +563,7 @@ exports.down = async function (knex) {
     await knex.schema.dropTableIfExists("shipping_rules");
     await knex.schema.dropTableIfExists("offers");
     await knex.schema.dropTableIfExists("store_razorpay_links");
-    await knex.schema.dropTableIfExists("store_bank_accounts");
+    await knex.schema.dropTableIfExists("merchant_financials");
     await knex.schema.dropTableIfExists("razorpay_credentials");
     await knex.schema.dropTableIfExists("razorpay_oauth_states");
     await knex.schema.dropTableIfExists("order_items");

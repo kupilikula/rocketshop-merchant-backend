@@ -41,7 +41,7 @@ const updateSetupStatus = async (logger, affiliateAccountId, status) => {
 /**
  * Contains the entire post-OAuth setup logic (Steps 7-10).
  */
-async function performRouteSetup(logger, razorpayAffiliateAccountId, storeId) {
+async function performRouteSetup(logger, razorpayAffiliateAccountId, merchantId, storeId) {
     let newRazorpayRouteAccountId = null;
     let productConfigId = null;
     let failedStep = 0;
@@ -64,22 +64,28 @@ async function performRouteSetup(logger, razorpayAffiliateAccountId, storeId) {
             logger.info({ newRazorpayRouteAccountId }, "Found existing Route Account. Reusing it.");
         } else {
             logger.info({ affiliateAccountId: razorpayAffiliateAccountId }, "No existing Route Account found. Creating new one.");
+
             const storeProfile = await knex('stores').where({ storeId }).first();
             if (!storeProfile) throw new Error(`Store profile not found`);
+
+            const merchantProfile = await knex('merchants').where({ merchantId }).first();
+            if (!merchantProfile) throw new Error(`Merchant profile not found for ID: ${merchantId}`);
+
+
             const routeAccountPayload = {
-                email: storeProfile.storeEmail, phone: storeProfile.storePhone, legal_business_name: storeProfile.legalBusinessName,
-                customer_facing_business_name: storeProfile.storeName, type: "route", business_type: storeProfile.businessType,
+                email: merchantProfile.email, phone: merchantProfile.phone, legal_business_name: merchantProfile.legalBusinessName,
+                customer_facing_business_name: storeProfile.storeName, type: "route", business_type: merchantProfile.businessType,
                 profile: {
                     category: storeProfile.category,
                     subcategory: storeProfile.subcategory,
                     addresses: {
                         registered: {
-                            street1: storeProfile.registeredAddress.street1,
-                            street2: storeProfile.registeredAddress.street2,
-                            city: storeProfile.registeredAddress.city,
-                            state: storeProfile.registeredAddress.state,
+                            street1: merchantProfile.registeredAddress.street1,
+                            street2: merchantProfile.registeredAddress.street2,
+                            city: merchantProfile.registeredAddress.city,
+                            state: merchantProfile.registeredAddress.state,
                             country: "IN",
-                            postal_code: storeProfile.registeredAddress.postalCode
+                            postal_code: merchantProfile.registeredAddress.postalCode
                         }
                     }
                 }
@@ -103,12 +109,13 @@ async function performRouteSetup(logger, razorpayAffiliateAccountId, storeId) {
 
         // --- Step 8: Find, Create, or Update Stakeholder ---
         failedStep = 8;
-        const profileRecord = await knex('store_bank_accounts').where({ storeId }).first();
-        if (!profileRecord) throw new Error(`Stakeholder/Bank details not found`);
+        const financialProfile = await knex('merchant_financials').where({ merchantId }).first();
+        if (!financialProfile) throw new Error(`Merchant financial details not found`);
+
         const stakeholderPayload = {
-            name: decryptText(profileRecord.stakeholder_name_encrypted),
-            email: decryptText(profileRecord.stakeholder_email_encrypted),
-            kyc: { pan: decryptText(profileRecord.stakeholder_pan_encrypted) },
+            name: decryptText(financialProfile.stakeholder_name_encrypted),
+            email: decryptText(financialProfile.stakeholder_email_encrypted),
+            kyc: { pan: decryptText(financialProfile.stakeholder_pan_encrypted) },
         };
         if (!stakeholderPayload.name || !stakeholderPayload.email || !stakeholderPayload.kyc.pan) throw new Error(`Decryption failed for stakeholder details`);
 
@@ -151,9 +158,9 @@ async function performRouteSetup(logger, razorpayAffiliateAccountId, storeId) {
         failedStep = 10;
         const productUpdatePayload = {
             settlements: {
-                account_number: decryptText(profileRecord.accountNumber_encrypted),
-                ifsc_code: decryptText(profileRecord.ifscCode_encrypted),
-                beneficiary_name: decryptText(profileRecord.beneficiaryName_encrypted),
+                account_number: decryptText(financialProfile.accountNumber_encrypted),
+                ifsc_code: decryptText(financialProfile.ifscCode_encrypted),
+                beneficiary_name: decryptText(financialProfile.beneficiaryName_encrypted),
             },
             tnc_accepted: true
         };
@@ -193,7 +200,7 @@ module.exports = async function (fastify) {
         try {
             // Steps 1-6: Atomic OAuth Data Processing
             const stateRecord = await knexTx('razorpay_oauth_states').where('state', receivedState).first();
-            if (!stateRecord || new Date(stateRecord.expires_at) < new Date() || stateRecord.storeId !== storeId) {
+            if (!stateRecord || new Date(stateRecord.expires_at) < new Date() || stateRecord.storeId !== storeId || stateRecord.merchantId !== initiatingMerchantId) {
                 await knexTx.rollback();
                 return reply.status(400).send({ success: false, error: 'Invalid or expired state parameter. Please try again.' });
             }
@@ -236,7 +243,7 @@ module.exports = async function (fastify) {
         }
 
         // Run the entire post-OAuth setup asynchronously without blocking the response.
-        performRouteSetup(logger, razorpayAffiliateAccountId, storeId);
+        performRouteSetup(logger, razorpayAffiliateAccountId, initiatingMerchantId, storeId);
 
         // Immediately return success for the OAuth part.
         return reply.send({ success: true, message: 'Razorpay account connected. Finalizing setup in the background.' });

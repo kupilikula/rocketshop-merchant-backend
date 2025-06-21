@@ -5,7 +5,7 @@ const knex = require("@database/knexInstance");
 module.exports = async function (fastify, opts) {
     fastify.patch('/', async (request, reply) => {
         const { storeId } = request.params;
-        const { storeName, storeHandle, storeDescription, storeTags, storeLogoImage } = request.body;
+        const { storeName, storeHandle, storeDescription, storeTags, storeLogoImage, storeEmail, storePhone } = request.body;
 
         if (!storeName && !storeHandle && !storeDescription && !storeTags && !storeLogoImage) {
             return reply.status(400).send({ error: "At least one field must be provided for update." });
@@ -17,6 +17,8 @@ module.exports = async function (fastify, opts) {
         if (storeDescription) updatePayload.storeDescription = storeDescription;
         if (storeTags) updatePayload.storeTags = JSON.stringify(storeTags);
         if (storeLogoImage) updatePayload.storeLogoImage = storeLogoImage;
+        if (storeEmail) updatePayload.storeEmail = storeEmail;
+        if (storePhone) updatePayload.storePhone = storePhone;
 
         if (storeHandle) {
             const existingHandle = await knex("stores")

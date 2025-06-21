@@ -49,8 +49,8 @@ module.exports = async function (fastify, opts) {
 
         // --- 3. Permission & Store State Checks (Unchanged) ---
         const merchant = await knex('merchantStores').where({ storeId, merchantId }).first();
-        if (!merchant || merchant.merchantRole !== 'Admin') {
-            return reply.status(403).send({ error: 'Only Admin merchants can activate the store.' });
+        if (!merchant || !['Owner','Admin'].includes(merchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Only Admin/Owner merchants can activate the store.' });
         }
 
         const store = await knex('stores').where({ storeId }).first();

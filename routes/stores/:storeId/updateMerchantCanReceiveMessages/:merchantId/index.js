@@ -20,8 +20,8 @@ module.exports = async function (fastify, opts) {
             .where({ storeId, merchantId: requestingMerchantId })
             .first();
 
-        if (!requestingMerchant || (requestingMerchant.merchantRole !== 'Admin' && requestingMerchant.merchantRole !== 'Manager')) {
-            return reply.status(403).send({ error: 'Only Admin or Manager can update' });
+        if (!requestingMerchant || (!['Owner', 'Admin', 'Manager'].includes(requestingMerchant.merchantRole))) {
+            return reply.status(403).send({ error: 'Only Owner, Admin or Manager can update' });
         }
 
         const targetMerchant = await knex('merchantStores')
@@ -30,6 +30,10 @@ module.exports = async function (fastify, opts) {
 
         if (!targetMerchant) {
             return reply.status(404).send({ error: 'Merchant not found' });
+        }
+        // Admins can only update Managers and Staff
+        if (requestingMerchant.merchantRole === 'Admin' && !['Manager', 'Staff'].includes(targetMerchant.merchantRole)) {
+            return reply.status(403).send({ error: 'Admins can only update Manager/Staff merchants' });
         }
 
         // Managers can only update Staff

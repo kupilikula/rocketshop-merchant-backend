@@ -34,7 +34,7 @@ module.exports = async function (fastify, opts) {
                     'storeSubscriptions.subscriptionId': subscriptionId, // Match the specific sub
                     'merchantStores.merchantId': merchantId,              // Ensure ownership
                     'storeSubscriptions.subscriptionStatus': 'active',    // Ensure it's in a cancellable state
-                    'merchantStores.merchantRole': 'Admin'                // Ensure user is an Admin
+                    'merchantStores.merchantRole': 'Owner'                // Ensure user is an Owner
                 })
                 .select('storeSubscriptions.*') // Select all columns from the subscription table
                 .first();

@@ -20,13 +20,10 @@ module.exports = async function (fastify, opts) {
             storeTags,
             storeSettings,            // { defaultGstRate, defaultGstInclusive }
             storePolicy,              //  <<< NEW — validated below
-            legalBusinessName,
             storeEmail,
             storePhone,
-            businessType,
             category,
             subcategory,
-            registeredAddress,
             isPlatformOwned,
         } = request.body;
 
@@ -42,26 +39,13 @@ module.exports = async function (fastify, opts) {
             !storeDescription ||
             !storeSettings ||
             !storePolicy ||
-            !legalBusinessName ||
             !storeEmail ||
             !storePhone ||
-            !businessType ||
-            !category ||
-            !registeredAddress
+            !category
         ) {
             return reply
                 .status(400)
                 .send({ error: 'Missing required store or business detail fields' });
-        }
-
-        if (
-            typeof registeredAddress !== 'object' ||
-            registeredAddress === null ||
-            Object.keys(registeredAddress).length === 0
-        ) {
-            return reply
-                .status(400)
-                .send({ error: 'Registered address must be a valid object.' });
         }
 
         const { defaultGstRate, defaultGstInclusive } = storeSettings || {};
@@ -167,13 +151,10 @@ module.exports = async function (fastify, opts) {
                         storeTags: JSON.stringify(storeTags || []),
                         isActive: false,
                         isPlatformOwned: finalIsPlatformOwned,
-                        legalBusinessName,
                         storeEmail,
                         storePhone,
-                        businessType,
                         category,
                         subcategory: subcategory || null,
-                        registeredAddress,
                     })
                     .returning('*');
 
@@ -182,7 +163,7 @@ module.exports = async function (fastify, opts) {
                     merchantStoreId: uuidv4(),
                     merchantId,
                     storeId,
-                    merchantRole: 'Admin',
+                    merchantRole: 'Owner',
                     canReceiveMessages: true,
                 });
 
