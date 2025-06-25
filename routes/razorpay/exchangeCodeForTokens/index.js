@@ -92,33 +92,8 @@ async function performRouteSetup(logger, razorpayAffiliateAccountId, merchantId,
             };
 
 
-            try {
-                // We optimistically try to create the account, which works for new merchants.
-                const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });
-                newRazorpayRouteAccountId = routeAccountResponse.data.id;
-                logger.info({ newRazorpayRouteAccountId }, "Successfully created new Route Linked Account.");
-            } catch (creationError) {
-                const errorData = creationError.response?.data?.error;
-
-                // Check if it's the specific "email already exists" error.
-                if (errorData?.code === 'BAD_REQUEST_ERROR' && errorData?.description?.includes('already exists for account')) {
-                    logger.warn({ err: errorData }, "Merchant already exists on Razorpay. Attempting to recover and re-use existing account.");
-
-                    // Extract the existing account ID from the error message string.
-                    const matches = errorData.description.match(/(acc_[a-zA-Z0-9]+)/);
-                    if (matches && matches[0]) {
-                        newRazorpayRouteAccountId = matches[0];
-                        logger.info({ newRazorpayRouteAccountId }, "Extracted existing Route Account ID from error message.");
-                    } else {
-                        // If we can't extract the ID for some reason, we must fail hard.
-                        logger.error({ errorData }, "Merchant exists on Razorpay, but could not extract existing Account ID from error description.");
-                        throw new Error("Could not recover existing Razorpay account.");
-                    }
-                } else {
-                    // If it's a different, unexpected error, re-throw it to be handled by the main catch block.
-                    throw creationError;
-                }
-            }
+            const routeAccountResponse = await axios.post('https://api.razorpay.com/v2/accounts', routeAccountPayload, { headers });
+            newRazorpayRouteAccountId = routeAccountResponse.data.id;
 
             await knex('razorpay_credentials').where({ razorpayAffiliateAccountId }).update({ razorpayLinkedAccountId: newRazorpayRouteAccountId });
         }
