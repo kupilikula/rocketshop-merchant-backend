@@ -31,8 +31,11 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: 'Invalid plan type specified.' });
         }
 
-        const merchant = await knex('merchants').where({merchantId})
-            .select('phone', 'email', 'merchantRole').first();
+        const merchant = await knex('merchants')
+            .join('merchantStores', 'merchants.merchantId', '=', 'merchantStores.merchantId')
+            .where({'merchants.merchantId': merchantId, 'merchantStores.storeId': storeId})
+            .select('merchants.phone', 'merchants.email', 'merchantStores.merchantRole')
+            .first();
 
         if (!merchant || merchant.merchantRole !== 'Owner') {
             return reply.status(400).send({ error: 'Merchant not found or does not have permission to create subscriptions.' });

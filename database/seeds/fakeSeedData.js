@@ -33,6 +33,7 @@ exports.seed = async function (knex) {
             merchantId: faker.string.uuid(),
             fullName: faker.person.fullName(),
             phone: fakerEN_IN.phone.number({ style: 'international' }),
+            // legalBusinessName: `${companyName} ${faker.company.buzzNoun()} Ltd.`, // Make it sound more legal
             created_at,
             updated_at,
         };
@@ -48,7 +49,7 @@ exports.seed = async function (knex) {
         const companyName = faker.company.name(); // Used for storeName and legalBusinessName
 
         // Select businessType, category, and subCategory
-        const selectedBusinessType = faker.helpers.arrayElement(business_types);
+        // const selectedBusinessType = faker.helpers.arrayElement(business_types);
         const availableCategoryKeys = Object.keys(razorpayCategories);
         const selectedCategoryKey = faker.helpers.arrayElement(availableCategoryKeys);
 
@@ -76,20 +77,19 @@ exports.seed = async function (knex) {
             isActive: faker.datatype.boolean({ probability: 0.9 }), // Most stores active
 
             // New Fields
-            legalBusinessName: `${companyName} ${faker.company.buzzNoun()} Ltd.`, // Make it sound more legal
             storeEmail: faker.internet.email({ firstName: 'contact', provider: companyName.toLowerCase().replace(/[^a-z0-9]/gi, '') + '.com' }),
             storePhone: fakerEN_IN.phone.number({ style: 'international' }),
-            businessType: selectedBusinessType,
+            // businessType: selectedBusinessType,
             category: selectedCategoryKey,
             subcategory: selectedSubCategory, // Will be null if no subcategories or none selected
-            registeredAddress: { // This will be automatically stringified by Knex for JSONB
-                street1: faker.location.streetAddress(false), // street name and building number
-                street2: faker.helpers.maybe(() => faker.location.secondaryAddress(), { probability: 0.4 }), // Optional
-                city: faker.location.city(),
-                state: faker.location.state(),
-                country: 'India', // Fixed for context, or use faker.location.country()
-                postalCode: faker.location.zipCode('######'),
-            },
+            // registeredAddress: { // This will be automatically stringified by Knex for JSONB
+            //     street1: faker.location.streetAddress(false), // street name and building number
+            //     street2: faker.helpers.maybe(() => faker.location.secondaryAddress(), { probability: 0.4 }), // Optional
+            //     city: faker.location.city(),
+            //     state: faker.location.state(),
+            //     country: 'India', // Fixed for context, or use faker.location.country()
+            //     postalCode: faker.location.zipCode('######'),
+            // },
             isPlatformOwned: faker.datatype.boolean({ probability: 0.05 }), // Small chance of being platform owned
 
             created_at,
@@ -150,7 +150,7 @@ exports.seed = async function (knex) {
                 merchantStoreId: faker.string.uuid(),
                 merchantId: merchant.merchantId,
                 storeId: store.storeId,
-                merchantRole: faker.helpers.arrayElement(['Admin', 'Manager', 'Staff']),
+                merchantRole: faker.helpers.arrayElement(['Owner','Admin', 'Manager', 'Staff']),
                 created_at,
                 updated_at,
             });

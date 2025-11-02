@@ -4,12 +4,8 @@ const knex = require('@database/knexInstance');
 
 module.exports = async function (fastify, opts) {
     fastify.post('/', async (request, reply) => {
-<<<<<<< Updated upstream:routes/stores/:storeId/linkPaymentAccount/index.js
-        const { storeId } = request.params;
-=======
         // 1. Explicitly get storeId and credentialId from the request body
         const { storeId, credentialId } = request.body;
->>>>>>> Stashed changes:routes/razorpay/link-payment-account/index.js
         const { merchantId } = request.user;
         const logger = fastify.log;
 

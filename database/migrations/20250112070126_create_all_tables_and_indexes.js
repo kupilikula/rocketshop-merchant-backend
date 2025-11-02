@@ -10,9 +10,6 @@ exports.up = async function (knex) {
         table.string("email").unique().nullable().defaultTo(null);
         table.check('phone IS NOT NULL OR email IS NOT NULL', [], 'merchants_phone_or_email_required');
         table.boolean('isPlatformMerchant').notNullable().defaultTo(false).index();
-        table.string('legalBusinessName').nullable();
-        table.string('businessType').notNullable();    // Or .notNullable()
-        table.jsonb('registeredAddress').notNullable(); // Or .notNullable()
         table.timestamps(true, true);
     });
 
@@ -163,35 +160,19 @@ exports.up = async function (knex) {
     console.log("Creating table: razorpay_credentials...");
     await knex.schema.createTable('razorpay_credentials', function(table) {
         table.uuid('credentialId').primary().defaultTo(knex.raw('gen_random_uuid()'));
-        table.string('razorpayAffiliateAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
-        table.string('razorpayLinkedAccountId').nullable();
-        table.string('razorpayProductConfigId').nullable();
-        table.string('razorpayStakeholderId').nullable();
-        table.string('setupStatus').notNullable().defaultTo('oauth_complete');
+        table.string('razorpayAccountId').notNullable().unique().index(); // The unique 'acc_...' ID from Razorpay
         table.string('public_token').notNullable(); // Store encrypted token
         table.text('accessToken').notNullable(); // Store encrypted token
         table.text('refreshToken').nullable(); // Store encrypted token (if available)
         table.timestamp('tokenExpiresAt', { useTz: true }).nullable(); // Access token expiry
         table.text('grantedScopes').nullable(); // Store granted scopes as text
         // Optional: Track which merchant user initially linked this account
-        table.uuid('addedByMerchantId').notNullable().unique().index();
+        table.uuid('addedByMerchantId').notNullable().index();
         table.foreign('addedByMerchantId').references('merchantId').inTable('merchants').onDelete('SET NULL');
         table.timestamps(true, true); // created_at, updated_at
     });
     console.log("Created table: razorpay_credentials.");
-
-    await knex.schema.createTable('merchant_financials', function(table) {
-        table.uuid('merchantId').primary();
-        table.foreign('merchantId').references('merchantId').inTable('merchants').onDelete('CASCADE');
-        table.text('beneficiaryName_encrypted').notNullable();
-        table.text('accountNumber_encrypted').notNullable();
-        table.text('ifscCode_encrypted').notNullable();
-        table.text('stakeholder_name_encrypted').notNullable();
-        table.text('stakeholder_email_encrypted').notNullable();
-        table.text('stakeholder_pan_encrypted').notNullable();
-        table.timestamps(true, true);
-    });
-
+    
     console.log("Creating table: store_razorpay_links...");
     await knex.schema.createTable('store_razorpay_links', function(table) {
         table.uuid('linkId').primary().defaultTo(knex.raw('gen_random_uuid()'));
@@ -326,9 +307,17 @@ exports.up = async function (knex) {
         table.timestamp("orderStatusUpdateTime").defaultTo(knex.fn.now());
         table.jsonb("recipient").defaultTo("{}");
         table.jsonb("deliveryAddress").defaultTo("{}");
-        table.decimal("orderTotal", 10, 2).notNullable();
+        table.decimal('subtotal', 10, 2).notNullable().defaultTo(0.00);
+        table.decimal('shipping', 10, 2).notNullable().defaultTo(0.00);
+        table.decimal('discount', 10, 2).notNullable().defaultTo(0.00);
+        table.decimal('gst', 10, 2).notNullable().defaultTo(0.00);
+        table.decimal('orderTotal', 10, 2).notNullable();
+        // Store the offers that were successfully applied
+        table.jsonb('appliedOffers').nullable();
         table.timestamp("orderDate").defaultTo(knex.fn.now());
         table.string('razorpayOrderId').nullable().index();
+        table.string('razorpayPaymentId').nullable().index();
+        table.string('razorpaySignature').nullable();
         table.timestamps(true, true);
     });
 

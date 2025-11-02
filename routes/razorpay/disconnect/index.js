@@ -1,12 +1,13 @@
+// in a new file, e.g., src/routes/razorpay/unlinkStore.js
 'use strict';
 
 const knex = require('@database/knexInstance');
 
 module.exports = async function (fastify, opts) {
 
+    // The endpoint path matches the frontend's unlinkStore mutation call
     fastify.post('/', async function (request, reply) {
         const logger = fastify.log;
-        // It's slightly more conventional for a specific resource action to use params, but body is fine.
         const { storeId } = request.body;
         const { merchantId } = request.user;
 
@@ -14,47 +15,51 @@ module.exports = async function (fastify, opts) {
             return reply.status(400).send({ error: 'A storeId is required.' });
         }
 
-        logger.info({ merchantId, storeId }, "Attempting to disconnect Razorpay link for store.");
+        logger.info({ merchantId, storeId }, "Attempting to unlink Razorpay for store.");
 
         const trx = await knex.transaction();
         try {
-            // --- 1. UPDATED: Verify merchant is the 'Owner' of this store ---
-            const storeAccess = await trx('merchantStores')
-                .where({
-                    storeId: storeId,
-                    merchantId: merchantId,
-                    merchantRole: 'Owner' // <-- The added security check
-                })
-                .first('merchantStoreId');
+            // 1. Find the link record to get the associated credential ID.
+            const linkRecord = await trx('store_razorpay_links')
+                .where({ storeId })
+                .first('razorpayCredentialId');
 
-            if (!storeAccess) {
-                logger.warn({ merchantId, storeId }, "Forbidden attempt to disconnect store by non-owner.");
-                await trx.rollback();
-                return reply.status(403).send({ error: 'Forbidden: Only the store owner can manage payment settings.' });
+            // If the store is not linked, the desired state is already achieved.
+            // We can return success immediately.
+            if (!linkRecord) {
+                await trx.rollback(); // No changes needed, rollback transaction.
+                logger.info({ storeId }, "Store was not linked. No action taken.");
+                return reply.send({ success: true, message: 'Store was not linked.' });
             }
 
-            // --- 2. Your core logic is already correct ---
-            // Delete the link from store_razorpay_links. This disconnects the store
-            // while preserving the merchant's main credential record.
-            const deletedLinkCount = await trx('store_razorpay_links')
+            // 2. Find the owner of the credential that is linked to the store.
+            const credentialOwner = await trx('razorpay_credentials')
+                .where({ credentialId: linkRecord.razorpayCredentialId })
+                .first('addedByMerchantId');
+
+            // 3. **ENHANCED SECURITY CHECK**: Verify the current user is the credential owner.
+            // This prevents a co-owner of a store from unlinking an account they didn't set up.
+            if (!credentialOwner || credentialOwner.addedByMerchantId !== merchantId) {
+                await trx.rollback();
+                logger.warn({ merchantId, storeId }, "Forbidden attempt to unlink account by non-linking owner.");
+                return reply.status(403).send({ error: 'Forbidden: Only the merchant who linked the account can unlink it.' });
+            }
+
+            // 4. If authorization passes, delete the link.
+            await trx('store_razorpay_links')
                 .where('storeId', storeId)
                 .del();
 
             await trx.commit();
 
-            if (deletedLinkCount > 0) {
-                logger.info({ storeId }, "Successfully disconnected store by deleting its link.");
-            } else {
-                logger.info({ storeId }, "Store was not connected. No action taken.");
-            }
-
-            return reply.status(200).send({ success: true, message: 'Razorpay account has been disconnected from this store.' });
+            logger.info({ storeId, merchantId }, "Successfully unlinked store by deleting its link.");
+            return reply.send({ success: true, message: 'Razorpay account has been unlinked from this store.' });
 
         } catch (error) {
             if (trx && !trx.isCompleted()) {
                 await trx.rollback();
             }
-            logger.error({ err: error, storeId, merchantId }, "Error disconnecting Razorpay account.");
+            logger.error({ err: error, storeId, merchantId }, "Error unlinking Razorpay account.");
             return reply.status(500).send({ error: 'An internal server error occurred.' });
         }
     });

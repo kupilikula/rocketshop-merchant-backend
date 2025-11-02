@@ -9,11 +9,7 @@ const API_TIMEOUT = 7000;
 
 module.exports = async function (fastify, opts) {
     fastify.get('/', async (request, reply) => {
-<<<<<<< Updated upstream:routes/stores/:storeId/getRazorpayStatus/index.js
         // Use storeId from query params for context, and merchantId from the auth token
-=======
-
->>>>>>> Stashed changes:routes/razorpay/status/index.js
         const { storeId } = request.query;
         const { merchantId } = request.user;
         const logger = fastify.log;
