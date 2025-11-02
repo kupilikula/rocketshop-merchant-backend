@@ -1,6 +1,7 @@
 'use strict'
 
 const knex = require("@database/knexInstance");
+const {v4: uuidv4} = require("uuid");
 
 module.exports = async function (fastify, opts) {
   fastify.get('/', async (request, reply) => {
@@ -44,6 +45,32 @@ module.exports = async function (fastify, opts) {
     } catch (error) {
       request.log.error(error);
       return reply.status(500).send({ error: 'Failed to fetch collections.' });
+    }
+  });
+
+  fastify.post('/', async (request, reply) => {
+    const { storeId } = request.params;
+    const { collectionName, isActive = false, storeFrontDisplay = true, storeFrontDisplayNumberOfItems = 6 } = request.body;
+
+    try {
+      const collectionId = uuidv4();
+
+      const [newCollection] = await knex("collections")
+          .insert({
+            collectionId,
+            storeId,
+            collectionName,
+            isActive,
+            storeFrontDisplay,
+            storeFrontDisplayNumberOfItems,
+            displayOrder: 0
+          })
+          .returning("*"); // Returning inserted row (PostgreSQL)
+
+      return reply.code(201).send({ success: true, data: newCollection });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.code(500).send({ success: false, message: "Failed to create collection" });
     }
   });
 }
